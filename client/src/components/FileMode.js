@@ -6,7 +6,8 @@ import {
   Typography, 
   Space,
   Tag,
-  Alert
+  Alert,
+  message
 } from 'antd';
 import { 
   CopyOutlined,
@@ -39,10 +40,20 @@ const FileMode = ({ searchResults, refreshTrigger }) => {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const copyText = (text) => {
+    navigator.clipboard.writeText(text).then(() => {
+      message.success('Copied to clipboard!');
+    }).catch(() => {
+      message.error('Failed to copy');
+    });
+  };
+
   const copyPath = (folderPath, fileName) => {
     const fullPath = `${folderPath}${folderPath.endsWith('\\') || folderPath.endsWith('/') ? '' : '\\'}${fileName}`;
     navigator.clipboard.writeText(fullPath).then(() => {
-      console.log('Path copied to clipboard');
+      message.success('Full path copied to clipboard!');
+    }).catch(() => {
+      message.error('Failed to copy path');
     });
   };
 
@@ -58,8 +69,10 @@ const FileMode = ({ searchResults, refreshTrigger }) => {
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
+      message.success('Files exported successfully!');
     } catch (error) {
       console.error('Export failed:', error);
+      message.error('Export failed: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -85,9 +98,13 @@ const FileMode = ({ searchResults, refreshTrigger }) => {
       title: 'Name',
       dataIndex: 'name',
       key: 'name',
-      width: '25%',
+      width: '27%',
       render: (text, record) => (
-        <Space>
+        <Space 
+          style={{ cursor: 'pointer', width: '100%' }}
+          onClick={() => copyText(text)}
+          title="Click to copy name"
+        >
           <FileOutlined />
           <Text>{text}</Text>
         </Space>
@@ -95,17 +112,35 @@ const FileMode = ({ searchResults, refreshTrigger }) => {
       sorter: (a, b) => a.name.localeCompare(b.name),
     },
     {
-      title: 'Extension',
+      title: 'Folder Path',
+      dataIndex: 'folder_path',
+      key: 'folder_path',
+      width: '45%',
+      render: (path) => (
+        <Space 
+          style={{ cursor: 'pointer', width: '100%' }}
+          onClick={() => copyText(path)}
+          title="Click to copy path"
+        >
+          <FolderOutlined />
+          <Text ellipsis style={{ maxWidth: 600 }} title={path}>
+            {path}
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: 'Ext',
       dataIndex: 'extension',
       key: 'extension',
-      width: '10%',
+      width: '8%',
       render: (extension) => (
         extension ? (
           <Tag color={getExtensionColor(extension)}>
-            {extension.toUpperCase()}
+            {extension.replace('.', '').toUpperCase()}
           </Tag>
         ) : (
-          <Tag>NO EXT</Tag>
+          <Tag>-</Tag>
         )
       ),
       filters: searchResults?.files ? 
@@ -117,45 +152,29 @@ const FileMode = ({ searchResults, refreshTrigger }) => {
       title: 'Size',
       dataIndex: 'size',
       key: 'size',
-      width: '12%',
+      width: '8%',
       render: (size) => formatBytes(size || 0),
       sorter: (a, b) => (a.size || 0) - (b.size || 0),
-    },
-    {
-      title: 'Folder Path',
-      dataIndex: 'folder_path',
-      key: 'folder_path',
-      width: '30%',
-      render: (path) => (
-        <Space>
-          <FolderOutlined />
-          <Text ellipsis style={{ maxWidth: 200 }} title={path}>
-            {path}
-          </Text>
-        </Space>
-      ),
     },
     {
       title: 'Modified',
       dataIndex: 'modified_at',
       key: 'modified_at',
-      width: '12%',
+      width: '9%',
       render: formatDate,
       sorter: (a, b) => new Date(a.modified_at || 0) - new Date(b.modified_at || 0),
     },
     {
       title: 'Actions',
       key: 'actions',
-      width: '11%',
+      width: '5%',
       render: (_, record) => (
         <Button
           size="small"
           icon={<CopyOutlined />}
           onClick={() => copyPath(record.folder_path, record.name)}
           title="Copy full path"
-        >
-          Copy
-        </Button>
+        />
       ),
     },
   ];
@@ -170,9 +189,11 @@ const FileMode = ({ searchResults, refreshTrigger }) => {
 
   useEffect(() => {
     if (searchResults?.files) {
+      const actualTotal = searchResults.totalFiles || searchResults.files.length;
       setPagination(prev => ({
         ...prev,
-        total: searchResults.totalFiles || searchResults.files.length
+        total: actualTotal,
+        current: actualTotal <= prev.pageSize ? 1 : prev.current
       }));
     }
   }, [searchResults]);

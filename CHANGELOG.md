@@ -9,9 +9,25 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 - 🔍 [2025-09-03] Added "Search In" dropdown - cho phép search theo Name Only, Path Only, hoặc Name & Path
+- 🎛️ [2025-09-03] Added Settings modal for search options - tách search settings ra popup modal riêng
+- 📱 [2025-09-03] Added Folder Details modal - click folder trong tree để xem details trong popup thay vì sidebar
+- 📋 [2025-09-03] Added click-to-copy functionality - click vào Name hoặc Folder Path column để copy text
+- 🔔 [2025-09-03] Added toast notifications - hiển thị message khi copy thành công hoặc thất bại
+- 🌳 [2025-09-03] Added Expand All / Collapse All buttons - control folder tree expansion state
+- ⏳ [2025-09-03] Added loading states - loading indicators cho search, scan, delete, export operations
+- 🎯 [2025-09-03] Added comprehensive toast notifications - success/error messages cho tất cả operations
 
 ### Fixed
+- 🐛 [2025-09-03] Fixed file search path column reference → Changed from `f.path` to `folders.path` trong search queries
 - 🐛 [2025-09-03] Fixed CSV export font encoding issues → Added UTF-8 BOM cho proper Excel display của tiếng Việt
+- ⚠️ [2025-09-03] Fixed React warnings → Removed invalid CSS styles, fixed pagination total calculation, added toast cleanup
+- ⚠️ [2025-09-03] Fixed Form instance warning → Used getFieldsValue() instead of validateFields() để tránh warning khi form chưa mount
+
+### Changed
+- 🎨 [2025-09-03] Changed SearchPanel layout → Simplified to search bar + buttons, moved advanced options to Settings modal
+- 🎨 [2025-09-03] Changed FolderMode layout → Full width folder structure, folder details in popup modal instead of sidebar
+- 📊 [2025-09-03] Changed FileMode column layout → Increased Folder Path width, decreased other columns, reordered for better UX
+- 📏 [2025-09-03] Changed Folder Path display → Increased maxWidth from 350px to 600px và width từ 40% to 45% để hiển thị path dài hơn
 
 ### Changed
 - 🔄 [2025-09-03] Changed DELETE operation từ preview-based sang direct delete với confirmation only

@@ -1,19 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Tree, Alert, Button, Typography, Row, Col } from 'antd';
+import { Card, Tree, Alert, Button, Typography, Modal, Space, message } from 'antd';
 import { 
   FolderOutlined, 
   FolderOpenOutlined,
   CopyOutlined,
-  ExportOutlined 
+  ExportOutlined,
+  ShrinkOutlined,
+  ArrowsAltOutlined
 } from '@ant-design/icons';
 import { ApiService } from '../services/api';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 const FolderMode = ({ searchResults, refreshTrigger }) => {
   const [treeData, setTreeData] = useState([]);
   const [selectedFolder, setSelectedFolder] = useState(null);
   const [expandedKeys, setExpandedKeys] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const buildTreeFromSearchResults = useCallback(() => {
     if (!searchResults?.folders) return;
@@ -94,6 +98,7 @@ const FolderMode = ({ searchResults, refreshTrigger }) => {
   const handleSelect = (selectedKeys, info) => {
     if (selectedKeys.length > 0 && info.node.data) {
       setSelectedFolder(info.node.data);
+      setModalVisible(true);
     }
   };
 
@@ -101,14 +106,36 @@ const FolderMode = ({ searchResults, refreshTrigger }) => {
     setExpandedKeys(expandedKeys);
   };
 
+  const expandAll = () => {
+    const getAllKeys = (nodes) => {
+      let keys = [];
+      nodes.forEach(node => {
+        keys.push(node.key);
+        if (node.children && node.children.length > 0) {
+          keys = keys.concat(getAllKeys(node.children));
+        }
+      });
+      return keys;
+    };
+    
+    setExpandedKeys(getAllKeys(treeData));
+  };
+
+  const collapseAll = () => {
+    setExpandedKeys([]);
+  };
+
   const copyPath = (path) => {
     navigator.clipboard.writeText(path).then(() => {
-      console.log('Path copied to clipboard');
+      message.success('Path copied to clipboard!');
+    }).catch(() => {
+      message.error('Failed to copy path');
     });
   };
 
   const exportFolders = async () => {
     try {
+      setExportLoading(true);
       const blob = await ApiService.exportData('folders');
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -118,8 +145,12 @@ const FolderMode = ({ searchResults, refreshTrigger }) => {
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
+      message.success('Folders exported successfully!');
     } catch (error) {
       console.error('Export failed:', error);
+      message.error('Export failed: ' + (error.message || 'Unknown error'));
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -140,109 +171,127 @@ const FolderMode = ({ searchResults, refreshTrigger }) => {
   }
 
   return (
-    <Row gutter={16}>
-      <Col span={12}>
-        <Card 
-          title="Folder Structure" 
-          extra={
+    <div>
+      <Card 
+        title="Folder Structure" 
+        extra={
+          <Space>
+            <Button 
+              icon={<ArrowsAltOutlined />} 
+              onClick={expandAll}
+              size="small"
+              title="Expand All"
+            >
+              Expand All
+            </Button>
+            <Button 
+              icon={<ShrinkOutlined />} 
+              onClick={collapseAll}
+              size="small"
+              title="Collapse All"
+            >
+              Collapse All
+            </Button>
             <Button 
               icon={<ExportOutlined />} 
               onClick={exportFolders}
               size="small"
+              loading={exportLoading}
             >
               Export
             </Button>
-          }
-        >
-          {treeData.length > 0 ? (
-            <Tree
-              showIcon
-              treeData={treeData}
-              onSelect={handleSelect}
-              onExpand={handleExpand}
-              expandedKeys={expandedKeys}
-              style={{ 
-                maxHeight: '600px', 
-                overflowY: 'auto',
-                border: '1px solid #f0f0f0',
-                borderRadius: '6px',
-                padding: '8px'
-              }}
-            />
-          ) : (
-            <div style={{ textAlign: 'center', padding: '50px', color: '#999' }}>
-              No folders found matching your search criteria.
+          </Space>
+        }
+      >
+        {treeData.length > 0 ? (
+          <Tree
+            showIcon
+            treeData={treeData}
+            onSelect={handleSelect}
+            onExpand={handleExpand}
+            expandedKeys={expandedKeys}
+            style={{ 
+              maxHeight: '600px', 
+              overflowY: 'auto',
+              border: '1px solid #f0f0f0',
+              borderRadius: '6px',
+              padding: '8px'
+            }}
+          />
+        ) : (
+          <div style={{ textAlign: 'center', padding: '50px', color: '#999' }}>
+            No folders found matching your search criteria.
+          </div>
+        )}
+      </Card>
+
+      <Modal
+        title={selectedFolder ? (
+          <span>
+            <FolderOpenOutlined style={{ marginRight: 8 }} />
+            {selectedFolder.name}
+          </span>
+        ) : "Folder Details"}
+        open={modalVisible}
+        onCancel={() => setModalVisible(false)}
+        footer={[
+          <Button key="copy" icon={<CopyOutlined />} onClick={() => selectedFolder && copyPath(selectedFolder.path)}>
+            Copy Path
+          </Button>,
+          <Button key="close" onClick={() => setModalVisible(false)}>
+            Close
+          </Button>
+        ]}
+        width={600}
+      >
+        {selectedFolder ? (
+          <div>
+            <div style={{ marginBottom: 12 }}>
+              <Text strong>Full Path: </Text>
+              <Text code style={{ wordBreak: 'break-all' }}>
+                {selectedFolder.path}
+              </Text>
             </div>
-          )}
-        </Card>
-      </Col>
 
-      <Col span={12}>
-        <Card title="Folder Details">
-          {selectedFolder ? (
-            <div>
-              <div style={{ marginBottom: 16 }}>
-                <Title level={5}>
-                  <FolderOpenOutlined style={{ marginRight: 8 }} />
-                  {selectedFolder.name}
-                </Title>
-                <Button 
-                  icon={<CopyOutlined />} 
-                  size="small"
-                  onClick={() => copyPath(selectedFolder.path)}
-                  style={{ marginLeft: 8 }}
-                >
-                  Copy Path
-                </Button>
-              </div>
-
+            {selectedFolder.parent_path && (
               <div style={{ marginBottom: 12 }}>
-                <Text strong>Full Path: </Text>
-                <Text code style={{ wordBreak: 'break-all' }}>
-                  {selectedFolder.path}
-                </Text>
+                <Text strong>Parent: </Text>
+                <Text>{selectedFolder.parent_path}</Text>
               </div>
+            )}
 
-              {selectedFolder.parent_path && (
-                <div style={{ marginBottom: 12 }}>
-                  <Text strong>Parent: </Text>
-                  <Text>{selectedFolder.parent_path}</Text>
-                </div>
-              )}
-
-              <div style={{ marginBottom: 12 }}>
-                <Text strong>Level: </Text>
-                <Text>{selectedFolder.level}</Text>
-              </div>
-
-              <div style={{ marginBottom: 12 }}>
-                <Text strong>Created: </Text>
-                <Text>{formatDate(selectedFolder.created_at)}</Text>
-              </div>
-
-              <div style={{ marginBottom: 12 }}>
-                <Text strong>Modified: </Text>
-                <Text>{formatDate(selectedFolder.modified_at)}</Text>
-              </div>
-
-              <div style={{ marginBottom: 12 }}>
-                <Text strong>Accessed: </Text>
-                <Text>{formatDate(selectedFolder.accessed_at)}</Text>
-              </div>
-
-              <div style={{ marginBottom: 12 }}>
-                <Text strong>Scanned: </Text>
-                <Text>{formatDate(selectedFolder.scanned_at)}</Text>
-              </div>
+            <div style={{ marginBottom: 12 }}>
+              <Text strong>Level: </Text>
+              <Text>{selectedFolder.level}</Text>
             </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '50px', color: '#999' }}>
-              Select a folder from the tree to view its details.
+
+            <div style={{ marginBottom: 12 }}>
+              <Text strong>Created: </Text>
+              <Text>{formatDate(selectedFolder.created_at)}</Text>
             </div>
-          )}
-        </Card>
-      </Col>
-    </Row>
+
+            <div style={{ marginBottom: 12 }}>
+              <Text strong>Modified: </Text>
+              <Text>{formatDate(selectedFolder.modified_at)}</Text>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <Text strong>Accessed: </Text>
+              <Text>{formatDate(selectedFolder.accessed_at)}</Text>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <Text strong>Scanned: </Text>
+              <Text>{formatDate(selectedFolder.scanned_at)}</Text>
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '50px', color: '#999' }}>
+            No folder selected.
+          </div>
+        )}
+      </Modal>
+    </div>
   );
 };
 

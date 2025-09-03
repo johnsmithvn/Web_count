@@ -21,7 +21,8 @@ import {
   ClearOutlined,
   ScanOutlined,
   DeleteOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
 import { ApiService } from '../services/api';
 
@@ -33,40 +34,71 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
   const [scanModalVisible, setScanModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [pendingDeleteData, setPendingDeleteData] = useState(null);
   const [scanForm] = Form.useForm();
   const [deleteForm] = Form.useForm();
+  const [settingsForm] = Form.useForm();
 
-  const handleSearch = (values) => {
-    const searchParams = {
-      query: values.query || '',
-      mode: values.mode || 'fuzzy',
-      caseSensitive: values.caseSensitive ? 'true' : 'false',
-      searchType: values.searchType || 'both',
-      searchIn: values.searchIn || 'both',
-      extension: values.extension || '',
-      sizeMin: values.sizeRange?.[0] || '',
-      sizeMax: values.sizeRange?.[1] || '',
-      dateFrom: values.dateRange?.[0]?.format('YYYY-MM-DD') || '',
-      dateTo: values.dateRange?.[1]?.format('YYYY-MM-DD') || '',
-      page: 1,
-      limit: 100
-    };
-    
-    onSearch(searchParams);
+  const handleSearch = async () => {
+    try {
+      setSearchLoading(true);
+      const searchValues = await searchForm.validateFields(['query']);
+      
+      // Get settings values, use getFieldsValue if form is not mounted
+      let settingsValues = {};
+      try {
+        settingsValues = settingsForm.getFieldsValue();
+      } catch {
+        // Use default values if settings form is not available
+        settingsValues = {};
+      }
+      
+      const searchParams = {
+        query: searchValues.query || '',
+        mode: settingsValues.mode || 'fuzzy',
+        caseSensitive: settingsValues.caseSensitive ? 'true' : 'false',
+        searchType: settingsValues.searchType || 'both',
+        searchIn: settingsValues.searchIn || 'both',
+        extension: settingsValues.extension || '',
+        sizeMin: settingsValues.sizeRange?.[0] || '',
+        sizeMax: settingsValues.sizeRange?.[1] || '',
+        dateFrom: settingsValues.dateRange?.[0]?.format('YYYY-MM-DD') || '',
+        dateTo: settingsValues.dateRange?.[1]?.format('YYYY-MM-DD') || '',
+        page: 1,
+        limit: 100
+      };
+      
+      await onSearch(searchParams);
+      message.success(`Search completed! Found ${searchParams.query ? `results for "${searchParams.query}"` : 'all items'}`);
+    } catch (error) {
+      message.error('Search failed: ' + (error.message || 'Please check your search criteria'));
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
-  const handleScan = (values) => {
-    const scanParams = {
-      rootPath: values.rootPath,
-      maxDepth: values.maxDepth || 10,
-      includeExtensions: values.includeExtensions || []
-    };
+  const handleScan = async (values) => {
+    try {
+      setScanLoading(true);
+      const scanParams = {
+        rootPath: values.rootPath,
+        maxDepth: values.maxDepth || 10,
+        includeExtensions: values.includeExtensions || []
+      };
 
-    onScan(values.scanType, scanParams);
-    setScanModalVisible(false);
-    scanForm.resetFields();
+      const result = await onScan(values.scanType, scanParams);
+      setScanModalVisible(false);
+      scanForm.resetFields();
+      message.success(result?.message || `${values.scanType} scan completed successfully!`);
+    } catch (error) {
+      message.error('Scan failed: ' + (error.message || 'Please check your scan settings'));
+    } finally {
+      setScanLoading(false);
+    }
   };
 
   const showScanModal = () => {
@@ -128,31 +160,90 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
   return (
     <>
       <Card title="Search & Scan Controls" style={{ marginBottom: 16 }}>
+        <Row gutter={16} align="middle">
+          <Col span={12}>
+            <Form form={searchForm} style={{ marginBottom: 0 }}>
+              <Form.Item name="query" style={{ marginBottom: 0 }}>
+                <Input
+                  placeholder="Enter search term..."
+                  suffix={<SearchOutlined />}
+                  onPressEnter={handleSearch}
+                  size="large"
+                />
+              </Form.Item>
+            </Form>
+          </Col>
+          
+          <Col span={12}>
+            <Space>
+              <Button 
+                type="primary" 
+                icon={<SearchOutlined />}
+                onClick={handleSearch}
+                loading={searchLoading || loading}
+                size="large"
+              >
+                Search
+              </Button>
+              
+              <Button 
+                icon={<SettingOutlined />}
+                onClick={() => setSettingsModalVisible(true)}
+                title="Search Settings"
+              >
+                Settings
+              </Button>
+              
+              {hasResults && (
+                <Button 
+                  icon={<ClearOutlined />}
+                  onClick={onClearSearch}
+                >
+                  Clear Results
+                </Button>
+              )}
+              
+              <Button 
+                type="dashed"
+                icon={<ScanOutlined />}
+                onClick={showScanModal}
+              >
+                Scan Folders
+              </Button>
+              
+              <Button 
+                type="dashed"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={showDeleteModal}
+              >
+                Delete Data
+              </Button>
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Search Settings Modal */}
+      <Modal
+        title="Search Settings"
+        open={settingsModalVisible}
+        onOk={() => setSettingsModalVisible(false)}
+        onCancel={() => setSettingsModalVisible(false)}
+        width={800}
+      >
         <Form
-          form={searchForm}
+          form={settingsForm}
           layout="vertical"
-          onFinish={handleSearch}
           initialValues={{
             mode: 'fuzzy',
             searchType: 'both',
+            searchIn: 'both',
             caseSensitive: false
           }}
         >
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item
-                label="Search Query"
-                name="query"
-              >
-                <Input
-                  placeholder="Enter search term..."
-                  suffix={<SearchOutlined />}
-                  onPressEnter={() => searchForm.submit()}
-                />
-              </Form.Item>
-            </Col>
-
-            <Col span={4}>
               <Form.Item
                 label="Search Mode"
                 name="mode"
@@ -165,11 +256,10 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
               </Form.Item>
             </Col>
 
-            <Col span={4}>
+            <Col span={8}>
               <Form.Item
                 label="Search In"
                 name="searchIn"
-                initialValue="both"
               >
                 <Select>
                   <Option value="both">Name & Path</Option>
@@ -179,7 +269,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
               </Form.Item>
             </Col>
 
-            <Col span={4}>
+            <Col span={8}>
               <Form.Item
                 label="Search Type"
                 name="searchType"
@@ -191,8 +281,10 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 </Select>
               </Form.Item>
             </Col>
+          </Row>
 
-            <Col span={4}>
+          <Row gutter={16}>
+            <Col span={8}>
               <Form.Item
                 label="Extension"
                 name="extension"
@@ -201,7 +293,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
               </Form.Item>
             </Col>
 
-            <Col span={4}>
+            <Col span={8}>
               <Form.Item
                 label="Case Sensitive"
                 name="caseSensitive"
@@ -213,7 +305,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
           </Row>
 
           <Row gutter={16}>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 label="Size Range (bytes)"
                 name="sizeRange"
@@ -233,7 +325,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
               </Form.Item>
             </Col>
 
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item
                 label="Date Range"
                 name="dateRange"
@@ -241,57 +333,16 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 <RangePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-
-            <Col span={8}>
-              <Form.Item label=" ">
-                <Space>
-                  <Button 
-                    type="primary" 
-                    icon={<SearchOutlined />}
-                    htmlType="submit"
-                    loading={loading}
-                  >
-                    Search
-                  </Button>
-                  
-                  {hasResults && (
-                    <Button 
-                      icon={<ClearOutlined />}
-                      onClick={onClearSearch}
-                    >
-                      Clear Results
-                    </Button>
-                  )}
-                  
-                  <Button 
-                    type="dashed"
-                    icon={<ScanOutlined />}
-                    onClick={showScanModal}
-                  >
-                    Scan Folders
-                  </Button>
-                  
-                  <Button 
-                    type="dashed"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={showDeleteModal}
-                  >
-                    Delete Data
-                  </Button>
-                </Space>
-              </Form.Item>
-            </Col>
           </Row>
         </Form>
-      </Card>
+      </Modal>
 
       <Modal
         title="Scan Configuration"
         open={scanModalVisible}
         onOk={() => scanForm.submit()}
         onCancel={() => setScanModalVisible(false)}
-        confirmLoading={loading}
+        confirmLoading={scanLoading || loading}
         width={600}
       >
         <Form

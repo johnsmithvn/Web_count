@@ -137,18 +137,18 @@ router.get('/', (req, res) => {
         if (mode === 'exact') {
           if (caseSensitive === 'true') {
             nameCondition = 'f.name = ?';
-            pathCondition = 'f.path = ?';
+            pathCondition = 'folders.path = ?';
           } else {
             nameCondition = 'LOWER(f.name) = LOWER(?)';
-            pathCondition = 'LOWER(f.path) = LOWER(?)';
+            pathCondition = 'LOWER(folders.path) = LOWER(?)';
           }
         } else if (mode === 'fuzzy') {
           if (caseSensitive === 'true') {
             nameCondition = 'f.name LIKE ?';
-            pathCondition = 'f.path LIKE ?';
+            pathCondition = 'folders.path LIKE ?';
           } else {
             nameCondition = 'LOWER(f.name) LIKE LOWER(?)';
-            pathCondition = 'LOWER(f.path) LIKE LOWER(?)';
+            pathCondition = 'LOWER(folders.path) LIKE LOWER(?)';
           }
         }
         

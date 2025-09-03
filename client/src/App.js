@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout, Tabs, message } from 'antd';
+import { Layout, Tabs, ConfigProvider, App as AntApp } from 'antd';
 import 'antd/dist/reset.css';
 import './App.css';
 
@@ -22,7 +22,8 @@ function App() {
       const results = await ApiService.search(searchParams);
       setSearchResults(results);
     } catch (error) {
-      message.error('Search failed: ' + error.message);
+      console.error('Search error:', error);
+      throw error; // Re-throw to let SearchPanel handle the toast
     } finally {
       setLoading(false);
     }
@@ -32,11 +33,12 @@ function App() {
     setLoading(true);
     try {
       const result = await ApiService.scan(scanType, scanParams);
-      message.success(result.message);
       setRefreshTrigger(prev => prev + 1);
       setSearchResults(null); // Clear search results after scan
+      return result; // Return result for SearchPanel to show success message
     } catch (error) {
-      message.error('Scan failed: ' + error.message);
+      console.error('Scan error:', error);
+      throw error; // Re-throw to let SearchPanel handle the toast
     } finally {
       setLoading(false);
     }
@@ -75,36 +77,40 @@ function App() {
   ];
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ 
-        backgroundColor: '#001529', 
-        color: 'white', 
-        padding: '0 24px',
-        display: 'flex',
-        alignItems: 'center'
-      }}>
-        <h1 style={{ color: 'white', margin: 0, fontSize: '20px' }}>
-          Media Database Manager
-        </h1>
-      </Header>
-      
-      <Content style={{ padding: '24px' }}>
-        <SearchPanel 
-          onSearch={handleSearch}
-          onScan={handleScan}
-          onClearSearch={clearSearch}
-          loading={loading}
-          hasResults={!!searchResults}
-        />
-        
-        <Tabs 
-          defaultActiveKey="dashboard" 
-          size="large" 
-          style={{ marginTop: 16 }}
-          items={tabItems}
-        />
-      </Content>
-    </Layout>
+    <ConfigProvider>
+      <AntApp>
+        <Layout style={{ minHeight: '100vh' }}>
+          <Header style={{ 
+            backgroundColor: '#001529', 
+            color: 'white', 
+            padding: '0 24px',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            <h1 style={{ color: 'white', margin: 0, fontSize: '20px' }}>
+              Media Database Manager
+            </h1>
+          </Header>
+          
+          <Content style={{ padding: '24px' }}>
+            <SearchPanel 
+              onSearch={handleSearch}
+              onScan={handleScan}
+              onClearSearch={clearSearch}
+              loading={loading}
+              hasResults={!!searchResults}
+            />
+            
+            <Tabs 
+              defaultActiveKey="dashboard" 
+              size="large" 
+              style={{ marginTop: 16 }}
+              items={tabItems}
+            />
+          </Content>
+        </Layout>
+      </AntApp>
+    </ConfigProvider>
   );
 }
 
