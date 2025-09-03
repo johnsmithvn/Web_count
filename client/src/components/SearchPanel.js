@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  Card, 
-  Input, 
-  Button, 
-  Select, 
-  Row, 
-  Col, 
+import {
+  Card,
+  Input,
+  Button,
+  Select,
+  Row,
+  Col,
   Form,
   Switch,
   InputNumber,
@@ -14,10 +14,10 @@ import {
   Space,
   message
 } from 'antd';
-import { 
-  SearchOutlined, 
-  FolderOutlined, 
-  FileOutlined, 
+import {
+  SearchOutlined,
+  FolderOutlined,
+  FileOutlined,
   ClearOutlined,
   ScanOutlined,
   DeleteOutlined,
@@ -55,6 +55,88 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
   const [scanForm] = Form.useForm();
   const [deleteForm] = Form.useForm();
   const [settingsForm] = Form.useForm();
+  // Watchers to force re-render when include/exclude lists change (keeps counts fresh)
+  const includeExtValues = Form.useWatch('includeExtensions', scanForm) || [];
+  const excludeExtValues = Form.useWatch('excludeExtensions', scanForm) || [];
+
+  // --- Extension groups for quick select/clear ---
+  const INCLUDE_GROUPS = {
+    '🎬 Video Files': ['.mp4', '.mkv', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.mpg', '.mpeg', '.3gp', '.ts', '.vob', '.rmvb', '.asf'],
+    '🎵 Audio Files': ['.mp3', '.wav', '.flac', '.aac', '.m4a', '.ogg', '.wma', '.aiff', '.opus', '.ac3', '.dts'],
+    '🖼️ Image Files': ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.tga', '.ico', '.svg', '.psd', '.raw', '.cr2', '.nef', '.arw'],
+    '📄 Documents': ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.txt', '.rtf'],
+    '📦 Archives': ['.zip', '.rar', '.7z', '.tar', '.gz', '.iso'],
+    '💻 Code Files': ['.js', '.css', '.html', '.json', '.xml', '.py', '.java', '.cpp', '.cs', '.php']
+  };
+
+  const EXCLUDE_GROUPS = {
+    '🗑️ Temporary Files': ['.tmp', '.temp', '.cache', '.bak', '.old', '.~', '.$$$', '.backup', '.orig', '.part', '.crdownload'],
+    '📝 Log/System Files': ['.log', '.swp', '.swo', '.ds_store', '.thumbs.db', '.desktop.ini', '.ini', '.db', '.lock'],
+    '🖥️ Windows System': ['.sys', '.dll', '.lnk', '.exe', '.msi'],
+    '💻 Development': ['.git', '.gitignore', '.node_modules', '.env', '.o', '.obj'],
+    '🌐 Web/Shortcuts': ['.torrent', '.url', '.webloc']
+  };
+
+  const normalizeExtensions = (values = []) => {
+    const norm = (v) => {
+      if (!v && v !== 0) return '';
+      let s = String(v).trim().toLowerCase();
+      // convert comma-separated into separate tags if user pasted many
+      // This function is used per item; bulk paste handled below.
+      if (!s.startsWith('.')) s = `.${s}`;
+      return s;
+    };
+    // Flatten any comma-separated pastes (e.g., ".mp4, .mkv")
+    const expanded = values.flatMap((v) =>
+      String(v)
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean)
+    );
+    return Array.from(new Set(expanded.map(norm)));
+  };
+
+  const applyGroup = (field, groupList) => {
+    const current = normalizeExtensions(scanForm.getFieldValue(field) || []);
+    const next = Array.from(new Set([...current, ...groupList]));
+    scanForm.setFieldsValue({ [field]: next });
+  };
+
+  const clearGroup = (field, groupList) => {
+    const current = normalizeExtensions(scanForm.getFieldValue(field) || []);
+    const next = current.filter((x) => !new Set(groupList).has(x));
+    scanForm.setFieldsValue({ [field]: next });
+  };
+
+  const groupSelectedCount = (currentValues, groupList) => {
+    const current = normalizeExtensions(currentValues || []);
+    return current.filter((x) => new Set(groupList).has(x)).length;
+  };
+
+  // Clickable label used inside Select.OptGroup to toggle select/clear all for a group
+  const renderGroupLabel = (field, label, list) => {
+    const currentValues = field === 'includeExtensions' ? includeExtValues : excludeExtValues;
+    const count = groupSelectedCount(currentValues, list);
+    const allSelected = list.length > 0 && count === list.length;
+    return (
+      <div
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (allSelected) {
+            clearGroup(field, list);
+          } else {
+            applyGroup(field, list);
+          }
+        }}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+        title={allSelected ? 'Bấm để xóa tất cả trong nhóm' : 'Bấm để chọn tất cả trong nhóm'}
+      >
+        <span>{label}</span>
+        <span style={{ fontSize: 12, color: '#8c8c8c' }}>{count}/{list.length}</span>
+      </div>
+    );
+  };
 
   const handleSearch = async () => {
     try {
@@ -93,7 +175,8 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
       const scanParams = {
         rootPath: values.rootPath,
         maxDepth: values.maxDepth || 10,
-        includeExtensions: values.includeExtensions || []
+        includeExtensions: values.includeExtensions || [],
+        excludeExtensions: values.excludeExtensions || []
       };
 
       const result = await onScan(values.scanType, scanParams);
@@ -379,13 +462,62 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
             label="Scan Type"
             name="scanType"
             rules={[{ required: true, message: 'Please select scan type' }]}
+            tooltip={
+              <div style={{ maxWidth: 400, color: '#ffffff' }}>
+                <div style={{ marginBottom: 8, fontWeight: 600, color: '#ffffff' }}>⚠️ Lưu ý quan trọng về dữ liệu:</div>
+                
+                <div style={{ marginBottom: 8 }}>
+                  <strong style={{ color: '#ffffff' }}>📁 Folder Only (Structure):</strong>
+                  <ul style={{ margin: '4px 0 0 16px', paddingLeft: 0, color: '#ffffff' }}>
+                    <li style={{ color: '#ffffff' }}>✅ Quét cấu trúc thư mục (nhanh)</li>
+                    <li style={{ color: '#ffffff' }}>✅ Giữ nguyên dữ liệu file đã có</li>
+                    <li style={{ color: '#ffffff' }}>❌ Không quét thông tin file chi tiết</li>
+                  </ul>
+                </div>
+
+                <div style={{ marginBottom: 8 }}>
+                  <strong style={{ color: '#ffffff' }}>📄 File Detail (With Metadata):</strong>
+                  <ul style={{ margin: '4px 0 0 16px', paddingLeft: 0, color: '#ffffff' }}>
+                    <li style={{ color: '#ffffff' }}>✅ Quét cả folder + file chi tiết (chậm)</li>
+                    <li style={{ color: '#ffffff' }}>⚠️ Xóa toàn bộ dữ liệu cũ trong path này</li>
+                    <li style={{ color: '#ffffff' }}>✅ Tạo lại dữ liệu hoàn chỉnh</li>
+                  </ul>
+                </div>
+
+                <div style={{ backgroundColor: '#fff7e6', padding: 8, borderRadius: 4, border: '1px solid #ffd591', color: '#000000' }}>
+                  <strong style={{ color: '#000000' }}>💡 Ví dụ:</strong><br/>
+                  <span style={{ color: '#000000' }}>1️⃣ Scan File: <code style={{ color: '#d32f2f' }}>C:\Media</code> → Có cả folder + file data</span><br/>
+                  <span style={{ color: '#000000' }}>2️⃣ Scan Folder: <code style={{ color: '#d32f2f' }}>C:\Media</code> → Giữ file data, chỉ cập nhật folder</span><br/>
+                  <span style={{ color: '#000000' }}>3️⃣ Scan File lại: <code style={{ color: '#d32f2f' }}>C:\Media</code> → Xóa tất cả, tạo mới hoàn toàn</span>
+                </div>
+              </div>
+            }
           >
-            <Select>
-              <Option value="folder">
-                <FolderOutlined /> Folder Only (Structure)
+            <Select 
+              placeholder="Chọn loại quét dữ liệu"
+              optionLabelProp="label"
+            >
+              <Option value="folder" label="📁 Folder Only (Structure)">
+                <Space>
+                  <FolderOutlined style={{ color: '#52c41a' }} />
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#262626' }}>Folder Only (Structure)</div>
+                    <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+                      Nhanh • Giữ nguyên file data • Chỉ cập nhật cấu trúc folder
+                    </div>
+                  </div>
+                </Space>
               </Option>
-              <Option value="file">
-                <FileOutlined /> File Detail (With Metadata)
+              <Option value="file" label="📄 File Detail (With Metadata)">
+                <Space>
+                  <FileOutlined style={{ color: '#1890ff' }} />
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#262626' }}>File Detail (With Metadata)</div>
+                    <div style={{ fontSize: 12, color: '#8c8c8c' }}>
+                      Chậm • Xóa data cũ • Tạo mới hoàn chỉnh folder + file
+                    </div>
+                  </div>
+                </Space>
               </Option>
             </Select>
           </Form.Item>
@@ -402,7 +534,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
           </Form.Item>
 
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item
                 label="Max Depth"
                 name="maxDepth"
@@ -412,7 +544,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
               </Form.Item>
             </Col>
 
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item
                 label="Include Extensions (file mode only)"
                 name="includeExtensions"
@@ -422,12 +554,177 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                   mode="tags"
                   placeholder="e.g., .mp4, .jpg, .pdf"
                   style={{ width: '100%' }}
+                  showSearch
+                  maxTagCount={5}
+                  maxTagPlaceholder={(omitted) => `+${omitted.length}`}
+                  onChange={(vals) => {
+                    const normalized = normalizeExtensions(vals);
+                    scanForm.setFieldsValue({ includeExtensions: normalized });
+                  }}
+                  filterOption={(input, option) => {
+                    const toL = (v) => (typeof v === 'string' ? v.toLowerCase() : '');
+                    const q = toL(input);
+                    return toL(option?.label).includes(q) || toL(option?.value).includes(q);
+                  }}
                 >
-                  <Option value=".mp4">.mp4</Option>
-                  <Option value=".mp3">.mp3</Option>
-                  <Option value=".jpg">.jpg</Option>
-                  <Option value=".png">.png</Option>
-                  <Option value=".pdf">.pdf</Option>
+                  <Select.OptGroup label={renderGroupLabel('includeExtensions', '🎬 Video Files', INCLUDE_GROUPS['🎬 Video Files'])}>
+                    <Option value=".mp4">.mp4</Option>
+                    <Option value=".mkv">.mkv</Option>
+                    <Option value=".avi">.avi</Option>
+                    <Option value=".mov">.mov</Option>
+                    <Option value=".wmv">.wmv</Option>
+                    <Option value=".flv">.flv</Option>
+                    <Option value=".webm">.webm</Option>
+                    <Option value=".m4v">.m4v</Option>
+                    <Option value=".mpg">.mpg</Option>
+                    <Option value=".mpeg">.mpeg</Option>
+                    <Option value=".3gp">.3gp</Option>
+                    <Option value=".ts">.ts</Option>
+                    <Option value=".vob">.vob</Option>
+                    <Option value=".rmvb">.rmvb</Option>
+                    <Option value=".asf">.asf</Option>
+                  </Select.OptGroup>
+                  
+                  <Select.OptGroup label={renderGroupLabel('includeExtensions', '🎵 Audio Files', INCLUDE_GROUPS['🎵 Audio Files'])}>
+                    <Option value=".mp3">.mp3</Option>
+                    <Option value=".wav">.wav</Option>
+                    <Option value=".flac">.flac</Option>
+                    <Option value=".aac">.aac</Option>
+                    <Option value=".m4a">.m4a</Option>
+                    <Option value=".ogg">.ogg</Option>
+                    <Option value=".wma">.wma</Option>
+                    <Option value=".aiff">.aiff</Option>
+                    <Option value=".opus">.opus</Option>
+                    <Option value=".ac3">.ac3</Option>
+                    <Option value=".dts">.dts</Option>
+                  </Select.OptGroup>
+                  
+                  <Select.OptGroup label={renderGroupLabel('includeExtensions', '🖼️ Image Files', INCLUDE_GROUPS['🖼️ Image Files'])}>
+                    <Option value=".jpg">.jpg</Option>
+                    <Option value=".jpeg">.jpeg</Option>
+                    <Option value=".png">.png</Option>
+                    <Option value=".gif">.gif</Option>
+                    <Option value=".bmp">.bmp</Option>
+                    <Option value=".webp">.webp</Option>
+                    <Option value=".tiff">.tiff</Option>
+                    <Option value=".tga">.tga</Option>
+                    <Option value=".ico">.ico</Option>
+                    <Option value=".svg">.svg</Option>
+                    <Option value=".psd">.psd</Option>
+                    <Option value=".raw">.raw</Option>
+                    <Option value=".cr2">.cr2</Option>
+                    <Option value=".nef">.nef</Option>
+                    <Option value=".arw">.arw</Option>
+                  </Select.OptGroup>
+                  
+                  <Select.OptGroup label={renderGroupLabel('includeExtensions', '📄 Documents', INCLUDE_GROUPS['📄 Documents'])}>
+                    <Option value=".pdf">.pdf</Option>
+                    <Option value=".doc">.doc</Option>
+                    <Option value=".docx">.docx</Option>
+                    <Option value=".xls">.xls</Option>
+                    <Option value=".xlsx">.xlsx</Option>
+                    <Option value=".ppt">.ppt</Option>
+                    <Option value=".pptx">.pptx</Option>
+                    <Option value=".txt">.txt</Option>
+                    <Option value=".rtf">.rtf</Option>
+                  </Select.OptGroup>
+                  
+                  <Select.OptGroup label={renderGroupLabel('includeExtensions', '📦 Archives', INCLUDE_GROUPS['📦 Archives'])}>
+                    <Option value=".zip">.zip</Option>
+                    <Option value=".rar">.rar</Option>
+                    <Option value=".7z">.7z</Option>
+                    <Option value=".tar">.tar</Option>
+                    <Option value=".gz">.gz</Option>
+                    <Option value=".iso">.iso</Option>
+                  </Select.OptGroup>
+                  
+                  <Select.OptGroup label={renderGroupLabel('includeExtensions', '💻 Code Files', INCLUDE_GROUPS['💻 Code Files'])}>
+                    <Option value=".js">.js</Option>
+                    <Option value=".css">.css</Option>
+                    <Option value=".html">.html</Option>
+                    <Option value=".json">.json</Option>
+                    <Option value=".xml">.xml</Option>
+                    <Option value=".py">.py</Option>
+                    <Option value=".java">.java</Option>
+                    <Option value=".cpp">.cpp</Option>
+                    <Option value=".cs">.cs</Option>
+                    <Option value=".php">.php</Option>
+                  </Select.OptGroup>
+                </Select>
+              </Form.Item>
+            </Col>
+
+            <Col span={8}>
+              <Form.Item
+                label="Exclude Extensions (file mode only)"
+                name="excludeExtensions"
+                tooltip="Files with these extensions will be skipped"
+              >
+                <Select
+                  mode="tags"
+                  placeholder="e.g., .tmp, .log, .cache"
+                  style={{ width: '100%' }}
+                  showSearch
+                  maxTagCount={5}
+                  maxTagPlaceholder={(omitted) => `+${omitted.length}`}
+                  onChange={(vals) => {
+                    const normalized = normalizeExtensions(vals);
+                    scanForm.setFieldsValue({ excludeExtensions: normalized });
+                  }}
+                  filterOption={(input, option) => {
+                    const toL = (v) => (typeof v === 'string' ? v.toLowerCase() : '');
+                    const q = toL(input);
+                    return toL(option?.label).includes(q) || toL(option?.value).includes(q);
+                  }}
+                >
+                  <Select.OptGroup label={renderGroupLabel('excludeExtensions', '🗑️ Temporary Files', EXCLUDE_GROUPS['🗑️ Temporary Files'])}>
+                    <Option value=".tmp">.tmp</Option>
+                    <Option value=".temp">.temp</Option>
+                    <Option value=".cache">.cache</Option>
+                    <Option value=".bak">.bak</Option>
+                    <Option value=".old">.old</Option>
+                    <Option value=".~">.~</Option>
+                    <Option value=".$$$">.$$$</Option>
+                    <Option value=".backup">.backup</Option>
+                    <Option value=".orig">.orig</Option>
+                    <Option value=".part">.part</Option>
+                    <Option value=".crdownload">.crdownload</Option>
+                  </Select.OptGroup>
+                  
+                  <Select.OptGroup label={renderGroupLabel('excludeExtensions', '📝 Log/System Files', EXCLUDE_GROUPS['📝 Log/System Files'])}>
+                    <Option value=".log">.log</Option>
+                    <Option value=".swp">.swp</Option>
+                    <Option value=".swo">.swo</Option>
+                    <Option value=".ds_store">.ds_store</Option>
+                    <Option value=".thumbs.db">.thumbs.db</Option>
+                    <Option value=".desktop.ini">.desktop.ini</Option>
+                    <Option value=".ini">.ini</Option>
+                    <Option value=".db">.db</Option>
+                    <Option value=".lock">.lock</Option>
+                  </Select.OptGroup>
+                  
+                  <Select.OptGroup label={renderGroupLabel('excludeExtensions', '🖥️ Windows System', EXCLUDE_GROUPS['🖥️ Windows System'])}>
+                    <Option value=".sys">.sys</Option>
+                    <Option value=".dll">.dll</Option>
+                    <Option value=".lnk">.lnk</Option>
+                    <Option value=".exe">.exe</Option>
+                    <Option value=".msi">.msi</Option>
+                  </Select.OptGroup>
+                  
+                  <Select.OptGroup label={renderGroupLabel('excludeExtensions', '💻 Development', EXCLUDE_GROUPS['💻 Development'])}>
+                    <Option value=".git">.git</Option>
+                    <Option value=".gitignore">.gitignore</Option>
+                    <Option value=".node_modules">.node_modules</Option>
+                    <Option value=".env">.env</Option>
+                    <Option value=".o">.o</Option>
+                    <Option value=".obj">.obj</Option>
+                  </Select.OptGroup>
+                  
+                  <Select.OptGroup label={renderGroupLabel('excludeExtensions', '🌐 Web/Shortcuts', EXCLUDE_GROUPS['🌐 Web/Shortcuts'])}>
+                    <Option value=".torrent">.torrent</Option>
+                    <Option value=".url">.url</Option>
+                    <Option value=".webloc">.webloc</Option>
+                  </Select.OptGroup>
                 </Select>
               </Form.Item>
             </Col>

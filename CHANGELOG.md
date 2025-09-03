@@ -18,6 +18,10 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - 🎯 [2025-09-03] Added comprehensive toast notifications - success/error messages cho tất cả operations
 - ❌ [2025-09-03] Added Delete Files tab - delete files by name với 2 modes: Contains và Exact Match
 - 🔍 [2025-09-03] Added Word-based Search mode - Windows-like search tách thành các từ riêng biệt
+- 📁 [2025-09-03] Added Add Files tab - thêm file thủ công với bắt buộc name và path
+- 🚫 [2025-09-03] Added Exclude Extensions trong Scan Configuration - cho phép loại trừ file types không mong muốn
+- 📁 [2025-09-03] Expanded file extensions list - thêm 60+ định dạng phổ biến cho video (.m4v, .webm, .ts), audio (.flac, .aac, .opus), ảnh (.webp, .tiff, .raw), documents, archives
+- 🏷️ [2025-09-03] Organized extensions with OptGroup categories - phân loại thành Video 🎬, Audio 🎵, Images 🖼️, Documents 📄, Archives 📦, Code 💻 để dễ tìm kiếm
 
 ### Fixed
 - 🐛 [2025-09-03] Fixed file search path column reference → Changed from `f.path` to `folders.path` trong search queries

@@ -32,12 +32,14 @@ const scanRoutes = require('./routes/scan');
 const searchRoutes = require('./routes/search');
 const statsRoutes = require('./routes/stats');
 const deleteRoutes = require('./routes/delete');
+const addRoutes = require('./routes/add');
 
 // Use routes
 app.use('/api/scan', scanRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/delete', deleteRoutes);
+app.use('/api/add', addRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

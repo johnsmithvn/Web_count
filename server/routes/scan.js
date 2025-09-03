@@ -99,13 +99,15 @@ router.post('/file', async (req, res) => {
   const db = req.app.locals.db;
   
   try {
-    const { rootPath, maxDepth = 10, includeExtensions = [] } = req.body;
+    const { rootPath, maxDepth = 10, includeExtensions = [], excludeExtensions = [] } = req.body;
     
     if (!rootPath || !fs.existsSync(rootPath)) {
       return res.status(400).json({ error: 'Invalid root path' });
     }
 
     console.log(`Starting file scan: ${rootPath}`);
+    console.log(`Include extensions: ${includeExtensions.length > 0 ? includeExtensions.join(', ') : 'All'}`);
+    console.log(`Exclude extensions: ${excludeExtensions.length > 0 ? excludeExtensions.join(', ') : 'None'}`);
     
     // Clear existing data for this root path
     db.run(`
@@ -182,7 +184,10 @@ router.post('/file', async (req, res) => {
                     const extension = path.extname(item).toLowerCase();
                     
                     // Filter by extensions if specified
-                    if (includeExtensions.length === 0 || includeExtensions.includes(extension)) {
+                    const shouldInclude = includeExtensions.length === 0 || includeExtensions.includes(extension);
+                    const shouldExclude = excludeExtensions.length > 0 && excludeExtensions.includes(extension);
+                    
+                    if (shouldInclude && !shouldExclude) {
                       db.run(`
                         INSERT INTO files 
                         (folder_id, name, extension, size, created_at, modified_at, accessed_at, scanned_at)

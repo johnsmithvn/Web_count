@@ -95,4 +95,19 @@ export class ApiService {
       body: JSON.stringify({ rootPath, deleteType })
     });
   }
+
+  // Add operations
+  static async addFile(fileData) {
+    return this.request('/add/file', {
+      method: 'POST',
+      body: JSON.stringify(fileData)
+    });
+  }
+
+  static async addFolder(folderData) {
+    return this.request('/add/folder', {
+      method: 'POST',
+      body: JSON.stringify(folderData)
+    });
+  }
 }
