@@ -234,6 +234,7 @@ const FolderMode = ({ searchResults, refreshTrigger }) => {
         ) : "Folder Details"}
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
+        destroyOnHidden={true}
         footer={[
           <Button key="copy" icon={<CopyOutlined />} onClick={() => selectedFolder && copyPath(selectedFolder.path)}>
             Copy Path

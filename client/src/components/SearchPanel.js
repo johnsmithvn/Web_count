@@ -39,6 +39,19 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
   const [scanLoading, setScanLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [pendingDeleteData, setPendingDeleteData] = useState(null);
+  
+  // Persistent search settings state
+  const [searchSettings, setSearchSettings] = useState({
+    mode: 'fuzzy',
+    searchType: 'both',
+    searchIn: 'both',
+    caseSensitive: false,
+    extension: '',
+    sizeRange: undefined,
+    dateRange: undefined
+  });
+  
+  // Create form instances - warnings will be suppressed by destroyOnClose
   const [scanForm] = Form.useForm();
   const [deleteForm] = Form.useForm();
   const [settingsForm] = Form.useForm();
@@ -48,29 +61,22 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
       setSearchLoading(true);
       const searchValues = await searchForm.validateFields(['query']);
       
-      // Get settings values, use getFieldsValue if form is not mounted
-      let settingsValues = {};
-      try {
-        settingsValues = settingsForm.getFieldsValue();
-      } catch {
-        // Use default values if settings form is not available
-        settingsValues = {};
-      }
-      
       const searchParams = {
         query: searchValues.query || '',
-        mode: settingsValues.mode || 'fuzzy',
-        caseSensitive: settingsValues.caseSensitive ? 'true' : 'false',
-        searchType: settingsValues.searchType || 'both',
-        searchIn: settingsValues.searchIn || 'both',
-        extension: settingsValues.extension || '',
-        sizeMin: settingsValues.sizeRange?.[0] || '',
-        sizeMax: settingsValues.sizeRange?.[1] || '',
-        dateFrom: settingsValues.dateRange?.[0]?.format('YYYY-MM-DD') || '',
-        dateTo: settingsValues.dateRange?.[1]?.format('YYYY-MM-DD') || '',
+        mode: searchSettings.mode || 'fuzzy',
+        caseSensitive: searchSettings.caseSensitive ? 'true' : 'false',
+        searchType: searchSettings.searchType || 'both',
+        searchIn: searchSettings.searchIn || 'both',
+        extension: searchSettings.extension || '',
+        sizeMin: searchSettings.sizeRange?.[0] || '',
+        sizeMax: searchSettings.sizeRange?.[1] || '',
+        dateFrom: searchSettings.dateRange?.[0]?.format('YYYY-MM-DD') || '',
+        dateTo: searchSettings.dateRange?.[1]?.format('YYYY-MM-DD') || '',
         page: 1,
         limit: 100
       };
+      
+      console.log('Search params being sent:', searchParams); // Debug log
       
       await onSearch(searchParams);
       message.success(`Search completed! Found ${searchParams.query ? `results for "${searchParams.query}"` : 'all items'}`);
@@ -157,6 +163,17 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
     setPendingDeleteData(null);
   };
 
+  const handleSaveSettings = async () => {
+    try {
+      const values = await settingsForm.validateFields();
+      setSearchSettings(values);
+      setSettingsModalVisible(false);
+      message.success('Search settings saved successfully!');
+    } catch (error) {
+      message.error('Failed to save settings: ' + (error.message || 'Please check your settings'));
+    }
+  };
+
   return (
     <>
       <Card title="Search & Scan Controls" style={{ marginBottom: 16 }}>
@@ -165,7 +182,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
             <Form form={searchForm} style={{ marginBottom: 0 }}>
               <Form.Item name="query" style={{ marginBottom: 0 }}>
                 <Input
-                  placeholder="Enter search term..."
+                  placeholder="Search files and folders... (Try: 'star wars' or 'final fantasy')"
                   suffix={<SearchOutlined />}
                   onPressEnter={handleSearch}
                   size="large"
@@ -228,19 +245,16 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
       <Modal
         title="Search Settings"
         open={settingsModalVisible}
-        onOk={() => setSettingsModalVisible(false)}
+        onOk={handleSaveSettings}
         onCancel={() => setSettingsModalVisible(false)}
         width={800}
+        okText="Save Settings"
+        cancelText="Cancel"
       >
         <Form
           form={settingsForm}
           layout="vertical"
-          initialValues={{
-            mode: 'fuzzy',
-            searchType: 'both',
-            searchIn: 'both',
-            caseSensitive: false
-          }}
+          initialValues={searchSettings}
         >
           <Row gutter={16}>
             <Col span={8}>
@@ -248,9 +262,15 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 label="Search Mode"
                 name="mode"
               >
-                <Select>
+                <Select defaultValue="fuzzy">
                   <Option value="exact">Exact Match</Option>
                   <Option value="fuzzy">Fuzzy Search</Option>
+                  <Option 
+                    value="word-based" 
+                    title="Splits query into separate words and matches ALL of them. Examples: 'star wars' matches files containing both 'star' AND 'wars', 'final fantasy' matches files with both words"
+                  >
+                    Word-based (Windows-like)
+                  </Option>
                   <Option value="regex">Regex</Option>
                 </Select>
               </Form.Item>
@@ -261,7 +281,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 label="Search In"
                 name="searchIn"
               >
-                <Select>
+                <Select defaultValue="both">
                   <Option value="both">Name & Path</Option>
                   <Option value="name">Name Only</Option>
                   <Option value="path">Path Only</Option>
@@ -274,7 +294,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 label="Search Type"
                 name="searchType"
               >
-                <Select>
+                <Select defaultValue="both">
                   <Option value="both">Both</Option>
                   <Option value="folders">Folders Only</Option>
                   <Option value="files">Files Only</Option>
@@ -344,6 +364,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
         onCancel={() => setScanModalVisible(false)}
         confirmLoading={scanLoading || loading}
         width={600}
+        destroyOnHidden={true}
       >
         <Form
           form={scanForm}
@@ -420,6 +441,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
         onCancel={() => setDeleteModalVisible(false)}
         confirmLoading={deleteLoading}
         width={600}
+        destroyOnHidden={true}
         footer={[
           <Button key="cancel" onClick={() => setDeleteModalVisible(false)}>
             Cancel

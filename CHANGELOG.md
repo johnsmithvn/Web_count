@@ -17,9 +17,14 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - ⏳ [2025-09-03] Added loading states - loading indicators cho search, scan, delete, export operations
 - 🎯 [2025-09-03] Added comprehensive toast notifications - success/error messages cho tất cả operations
 - ❌ [2025-09-03] Added Delete Files tab - delete files by name với 2 modes: Contains và Exact Match
+- 🔍 [2025-09-03] Added Word-based Search mode - Windows-like search tách thành các từ riêng biệt
 
 ### Fixed
 - 🐛 [2025-09-03] Fixed file search path column reference → Changed from `f.path` to `folders.path` trong search queries
+- ⚠️ [2025-09-03] Fixed React warnings → Downgraded React 19 to React 18 for Ant Design compatibility  
+- 🐛 [2025-09-03] Fixed useForm warnings → Added destroyOnHidden=true cho all modals để cleanup form instances
+- 📊 [2025-09-03] Fixed Table pagination warnings → Used actual files.length thay vì totalFiles cho pagination.total
+- 🔧 [2025-09-03] Fixed Modal deprecation → Changed destroyOnClose to destroyOnHidden for Ant Design v5
 - 🐛 [2025-09-03] Fixed CSV export font encoding issues → Added UTF-8 BOM cho proper Excel display của tiếng Việt
 - ⚠️ [2025-09-03] Fixed React warnings → Removed invalid CSS styles, fixed pagination total calculation, added toast cleanup
 - ⚠️ [2025-09-03] Fixed Form instance warning → Used getFieldsValue() instead of validateFields() để tránh warning khi form chưa mount
@@ -29,6 +34,7 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - 🎨 [2025-09-03] Changed FolderMode layout → Full width folder structure, folder details in popup modal instead of sidebar
 - 📊 [2025-09-03] Changed FileMode column layout → Increased Folder Path width, decreased other columns, reordered for better UX
 - 📏 [2025-09-03] Changed Folder Path display → Increased maxWidth from 350px to 600px và width từ 40% to 45% để hiển thị path dài hơn
+- 🚀 [2025-09-03] Changed client port → From 3001 to 5001 để tránh conflicts với other services
 
 ### Changed
 - 🔄 [2025-09-03] Changed DELETE operation từ preview-based sang direct delete với confirmation only

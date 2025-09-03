@@ -189,7 +189,8 @@ const FileMode = ({ searchResults, refreshTrigger }) => {
 
   useEffect(() => {
     if (searchResults?.files) {
-      const actualTotal = searchResults.totalFiles || searchResults.files.length;
+      // Use actual files length for pagination, not totalFiles from backend
+      const actualTotal = searchResults.files.length;
       setPagination(prev => ({
         ...prev,
         total: actualTotal,

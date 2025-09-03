@@ -9,7 +9,7 @@ router.get('/', (req, res) => {
   try {
     const {
       query = '',
-      mode = 'fuzzy', // exact, fuzzy, regex
+      mode = 'fuzzy', // exact, fuzzy, regex, word-based
       caseSensitive = 'false',
       searchType = 'both', // folders, files, both
       searchIn = 'both', // name, path, both
@@ -51,18 +51,65 @@ router.get('/', (req, res) => {
           nameCondition = 'LOWER(name) LIKE LOWER(?)';
           pathCondition = 'LOWER(path) LIKE LOWER(?)';
         }
+      } else if (mode === 'word-based') {
+        // Word-based search: tách query thành các words và match tất cả
+        const words = query.trim().split(/\s+/).filter(word => word.length > 0);
+        console.log('Word-based search - Query:', query, 'Words:', words);
+        
+        const wordConditions = [];
+        
+        words.forEach(word => {
+          if (caseSensitive === 'true') {
+            wordConditions.push('name LIKE ?');
+          } else {
+            wordConditions.push('LOWER(name) LIKE LOWER(?)');
+          }
+        });
+        
+        nameCondition = wordConditions.join(' AND ');
+        
+        // For path condition
+        const pathWordConditions = [];
+        words.forEach(word => {
+          if (caseSensitive === 'true') {
+            pathWordConditions.push('path LIKE ?');
+          } else {
+            pathWordConditions.push('LOWER(path) LIKE LOWER(?)');
+          }
+        });
+        
+        pathCondition = pathWordConditions.join(' AND ');
+        console.log('Word-based conditions - Name:', nameCondition, 'Path:', pathCondition);
       }
       
       if (searchIn === 'name') {
         searchConditions.push(nameCondition);
-        params.push(mode === 'fuzzy' ? `%${query}%` : query);
+        if (mode === 'word-based') {
+          const words = query.trim().split(/\s+/).filter(word => word.length > 0);
+          words.forEach(word => params.push(`%${word}%`));
+        } else {
+          params.push(mode === 'fuzzy' ? `%${query}%` : query);
+        }
       } else if (searchIn === 'path') {
         searchConditions.push(pathCondition);
-        params.push(mode === 'fuzzy' ? `%${query}%` : query);
+        if (mode === 'word-based') {
+          const words = query.trim().split(/\s+/).filter(word => word.length > 0);
+          words.forEach(word => params.push(`%${word}%`));
+        } else {
+          params.push(mode === 'fuzzy' ? `%${query}%` : query);
+        }
       } else { // both
         searchConditions.push(`(${nameCondition} OR ${pathCondition})`);
-        params.push(mode === 'fuzzy' ? `%${query}%` : query);
-        params.push(mode === 'fuzzy' ? `%${query}%` : query);
+        if (mode === 'word-based') {
+          const words = query.trim().split(/\s+/).filter(word => word.length > 0);
+          // Add parameters for name condition
+          words.forEach(word => params.push(`%${word}%`));
+          // Add parameters for path condition
+          words.forEach(word => params.push(`%${word}%`));
+        } else {
+          params.push(mode === 'fuzzy' ? `%${query}%` : query);
+          params.push(mode === 'fuzzy' ? `%${query}%` : query);
+        }
       }
       
       // Note: SQLite doesn't support REGEXP by default, so we'll treat it as fuzzy
@@ -150,18 +197,62 @@ router.get('/', (req, res) => {
             nameCondition = 'LOWER(f.name) LIKE LOWER(?)';
             pathCondition = 'LOWER(folders.path) LIKE LOWER(?)';
           }
+        } else if (mode === 'word-based') {
+          // Word-based search for files
+          const words = query.trim().split(/\s+/).filter(word => word.length > 0);
+          console.log('File search - Word-based search - Query:', query, 'Words:', words);
+          
+          const nameWordConditions = [];
+          words.forEach(word => {
+            if (caseSensitive === 'true') {
+              nameWordConditions.push('f.name LIKE ?');
+            } else {
+              nameWordConditions.push('LOWER(f.name) LIKE LOWER(?)');
+            }
+          });
+          nameCondition = nameWordConditions.join(' AND ');
+          
+          const pathWordConditions = [];
+          words.forEach(word => {
+            if (caseSensitive === 'true') {
+              pathWordConditions.push('folders.path LIKE ?');
+            } else {
+              pathWordConditions.push('LOWER(folders.path) LIKE LOWER(?)');
+            }
+          });
+          pathCondition = pathWordConditions.join(' AND ');
+          
+          console.log('File search - Word-based conditions - Name:', nameCondition, 'Path:', pathCondition);
         }
         
         if (searchIn === 'name') {
           fileConditions.push(nameCondition);
-          fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
+          if (mode === 'word-based') {
+            const words = query.trim().split(/\s+/).filter(word => word.length > 0);
+            words.forEach(word => fileParams.push(`%${word}%`));
+          } else {
+            fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
+          }
         } else if (searchIn === 'path') {
           fileConditions.push(pathCondition);
-          fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
+          if (mode === 'word-based') {
+            const words = query.trim().split(/\s+/).filter(word => word.length > 0);
+            words.forEach(word => fileParams.push(`%${word}%`));
+          } else {
+            fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
+          }
         } else { // both
           fileConditions.push(`(${nameCondition} OR ${pathCondition})`);
-          fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
-          fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
+          if (mode === 'word-based') {
+            const words = query.trim().split(/\s+/).filter(word => word.length > 0);
+            // Add parameters for name condition
+            words.forEach(word => fileParams.push(`%${word}%`));
+            // Add parameters for path condition  
+            words.forEach(word => fileParams.push(`%${word}%`));
+          } else {
+            fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
+            fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
+          }
         }
       }
 
