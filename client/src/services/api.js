@@ -77,6 +77,12 @@ export class ApiService {
     });
   }
 
+  static async deleteFile(fileId) {
+    return this.request(`/delete/file/${fileId}`, {
+      method: 'DELETE'
+    });
+  }
+
   static async deleteAll() {
     return this.request('/delete/all', {
       method: 'DELETE'

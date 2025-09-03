@@ -6,6 +6,7 @@ import './App.css';
 import Dashboard from './components/Dashboard';
 import FolderMode from './components/FolderMode';
 import FileMode from './components/FileMode';
+import DeleteMode from './components/DeleteMode';
 import SearchPanel from './components/SearchPanel';
 import { ApiService } from './services/api';
 
@@ -71,6 +72,16 @@ function App() {
         <FileMode 
           searchResults={searchResults}
           refreshTrigger={refreshTrigger}
+        />
+      )
+    },
+    {
+      key: 'delete',
+      label: 'Delete Files',
+      children: (
+        <DeleteMode 
+          refreshTrigger={refreshTrigger}
+          onRefresh={() => setRefreshTrigger(prev => prev + 1)}
         />
       )
     }

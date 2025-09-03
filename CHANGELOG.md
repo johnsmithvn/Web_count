@@ -16,6 +16,7 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - 🌳 [2025-09-03] Added Expand All / Collapse All buttons - control folder tree expansion state
 - ⏳ [2025-09-03] Added loading states - loading indicators cho search, scan, delete, export operations
 - 🎯 [2025-09-03] Added comprehensive toast notifications - success/error messages cho tất cả operations
+- ❌ [2025-09-03] Added Delete Files tab - delete files by name với 2 modes: Contains và Exact Match
 
 ### Fixed
 - 🐛 [2025-09-03] Fixed file search path column reference → Changed from `f.path` to `folders.path` trong search queries

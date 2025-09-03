@@ -2,6 +2,58 @@ const express = require('express');
 
 const router = express.Router();
 
+// Delete individual file by ID
+router.delete('/file/:id', (req, res) => {
+  const db = req.app.locals.db;
+  
+  try {
+    const fileId = req.params.id;
+    
+    if (!fileId) {
+      return res.status(400).json({ error: 'File ID is required' });
+    }
+
+    console.log(`Deleting file with ID: ${fileId}`);
+
+    // Get file info before deletion for logging
+    db.get('SELECT name, folder_id FROM files WHERE id = ?', [fileId], (err, fileInfo) => {
+      if (err) {
+        console.error('Error getting file info:', err);
+        return res.status(500).json({ error: 'Failed to get file info' });
+      }
+
+      if (!fileInfo) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      // Delete the file
+      db.run('DELETE FROM files WHERE id = ?', [fileId], function(err) {
+        if (err) {
+          console.error('Error deleting file:', err);
+          return res.status(500).json({ error: 'Failed to delete file' });
+        }
+
+        if (this.changes === 0) {
+          return res.status(404).json({ error: 'File not found' });
+        }
+
+        console.log(`Successfully deleted file: ${fileInfo.name}`);
+        
+        res.json({
+          success: true,
+          message: `File "${fileInfo.name}" deleted successfully`,
+          fileId: fileId,
+          fileName: fileInfo.name
+        });
+      });
+    });
+
+  } catch (error) {
+    console.error('Delete file error:', error);
+    res.status(500).json({ error: 'Delete file failed', details: error.message });
+  }
+});
+
 // Delete data by root path
 router.delete('/', (req, res) => {
   const db = req.app.locals.db;
