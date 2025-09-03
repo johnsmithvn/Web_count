@@ -8,6 +8,7 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- ⚡ [2025-09-03] Added Virtual Folder Tree - lazy loading với performance tối ưu cho hàng triệu folders, chỉ render visible nodes
 - 🔍 [2025-09-03] Added "Search In" dropdown - cho phép search theo Name Only, Path Only, hoặc Name & Path
 - 🎛️ [2025-09-03] Added Settings modal for search options - tách search settings ra popup modal riêng
 - 📱 [2025-09-03] Added Folder Details modal - click folder trong tree để xem details trong popup thay vì sidebar

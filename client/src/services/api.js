@@ -30,6 +30,11 @@ export class ApiService {
     });
   }
 
+  static async getChildren(parentPath) {
+    const encodedPath = encodeURIComponent(parentPath);
+    return this.request(`/search/children/${encodedPath}`);
+  }
+
   static async search(params) {
     const queryString = new URLSearchParams(params).toString();
     return this.request(`/search?${queryString}`);

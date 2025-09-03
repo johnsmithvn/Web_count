@@ -2,6 +2,43 @@ const express = require('express');
 
 const router = express.Router();
 
+// Get children folders for a specific parent path (for lazy loading)
+router.get('/children/:encodedPath', (req, res) => {
+  const db = req.app.locals.db;
+  
+  try {
+    const parentPath = decodeURIComponent(req.params.encodedPath);
+    
+    db.all(`
+      SELECT id, path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at,
+             (SELECT COUNT(*) FROM folders f2 WHERE f2.parent_path = folders.path) as child_count
+      FROM folders 
+      WHERE parent_path = ?
+      ORDER BY name
+    `, [parentPath], (err, children) => {
+      if (err) {
+        console.error('Error fetching children:', err);
+        return res.status(500).json({ error: 'Failed to fetch children' });
+      }
+
+      // Add hasChildren flag
+      const childrenWithFlags = children.map(child => ({
+        ...child,
+        hasChildren: child.child_count > 0
+      }));
+
+      res.json({
+        success: true,
+        children: childrenWithFlags,
+        parentPath
+      });
+    });
+  } catch (error) {
+    console.error('Children fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch children', details: error.message });
+  }
+});
+
 // Advanced search endpoint
 router.get('/', (req, res) => {
   const db = req.app.locals.db;

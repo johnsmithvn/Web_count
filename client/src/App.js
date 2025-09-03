@@ -4,7 +4,7 @@ import 'antd/dist/reset.css';
 import './App.css';
 
 import Dashboard from './components/Dashboard';
-import FolderMode from './components/FolderMode';
+import VirtualFolderTree from './components/VirtualFolderTree';
 import FileMode from './components/FileMode';
 import DeleteMode from './components/DeleteMode';
 import AddFilesMode from './components/AddFilesMode';
@@ -60,7 +60,7 @@ function App() {
       key: 'folders',
       label: 'Folder Mode',
       children: (
-        <FolderMode 
+        <VirtualFolderTree 
           searchResults={searchResults}
           refreshTrigger={refreshTrigger}
         />
