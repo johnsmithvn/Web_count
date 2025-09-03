@@ -1,0 +1,105 @@
+/* Media Database Manager Styles */
+
+.App {
+  min-height: 100vh;
+}
+
+/* Custom styles for better UX */
+.ant-layout-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ant-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.ant-table-thead > tr > th {
+  background-color: #fafafa;
+  font-weight: 600;
+}
+
+.ant-tree {
+  background: #fafafa;
+}
+
+.ant-tree-node-content-wrapper:hover {
+  background-color: #e6f7ff;
+}
+
+.ant-tree-node-selected {
+  background-color: #bae7ff !important;
+}
+
+/* Search panel styles */
+.search-panel {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.search-panel .ant-form-item-label > label {
+  color: white;
+}
+
+/* Statistics cards */
+.stat-card {
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+/* File size tags */
+.size-tag {
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .ant-col {
+    margin-bottom: 16px;
+  }
+  
+  .ant-table {
+    font-size: 12px;
+  }
+}
+
+/* Loading states */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Custom scrollbar for tree view */
+.ant-tree::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ant-tree::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.ant-tree::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.ant-tree::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}

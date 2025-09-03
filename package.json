@@ -1,0 +1,21 @@
+{
+  "name": "media-database-manager",
+  "version": "1.0.0",
+  "description": "Local media and folder database management application",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "server:dev": "cd server && npm run dev",
+    "client:dev": "cd client && set PORT=3001 && npm start",
+    "build": "cd client && npm run build",
+    "db:init": "cd server && npm run db:init",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "start": "cd server && npm start"
+  },
+  "keywords": ["media", "database", "local", "file-manager", "folder-scanner"],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

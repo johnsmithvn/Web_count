@@ -1,0 +1,231 @@
+# Changelog
+
+Tất cả thay đổi quan trọng của Media Database Manager sẽ được ghi lại ở đây.
+
+Định dạng dựa theo [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- 🔍 [2025-09-03] Added "Search In" dropdown - cho phép search theo Name Only, Path Only, hoặc Name & Path
+
+### Fixed
+- 🐛 [2025-09-03] Fixed CSV export font encoding issues → Added UTF-8 BOM cho proper Excel display của tiếng Việt
+
+### Changed
+- 🔄 [2025-09-03] Changed DELETE operation từ preview-based sang direct delete với confirmation only
+- 🧹 [2025-09-03] Cleaned up debug code và removed debug files cho production readiness
+
+### Added
+- 📋 [2025-09-03] Added comprehensive CHANGELOG.md với full project history
+- 📖 [2025-09-03] Added unified README.md cho toàn dự án với emoji và Vietnamese
+- 📋 [2025-09-03] Added mandatory changelog update protocol trong copilot-instructions.md
+- 🗑️ [2025-09-03] Added DELETE router với root path filtering - cho phép xóa selective data theo đường dẫn root
+- 🛡️ [2025-09-03] Added DELETE preview functionality với confirmation modal - preview trước khi xóa thực tế
+- 🎛️ [2025-09-03] Added DELETE controls trong SearchPanel - button và modal cho delete operations
+
+### Removed  
+- 🗑️ [2025-09-03] Removed client/README.md (Create React App template)
+- 🗑️ [2025-09-03] Removed duplicate route files (scan-sqlite3.js, search-simple.js, stats-simple.js)
+
+### Changed
+- 🔄 [2025-09-03] Updated .gitignore to centralized management (removed client/.gitignore)
+- 📖 [2025-09-03] Updated copilot-instructions.md với development guidelines và changelog requirements
+
+## [1.0.0] - 2025-09-03
+
+### Added
+
+#### Tính năng chính
+- 🚀 Ứng dụng web local-only hoàn chỉnh để quản lý media database
+- 🔍 Hai chế độ quét: Folder-only và File-detail với metadata đầy đủ
+- 📊 Dashboard với thống kê và biểu đồ (Recharts)
+- 🌳 TreeView cho folder hierarchy (Ant Design Tree)
+- 📋 DataTable cho file listings với sort/filter/pagination
+- 🔎 Tìm kiếm nâng cao với nhiều chế độ (exact, fuzzy, regex)
+- 📤 Export dữ liệu sang CSV
+
+#### Backend (Node.js + Express)
+- ✅ SQLite database với WAL mode và indexes tối ưu
+- ✅ REST API endpoints cho scan, search, stats
+- ✅ Database schema với tables folders và files
+- ✅ Foreign key constraints và data integrity
+- ✅ Error handling và logging toàn diện
+- ✅ Health check endpoint
+
+#### Frontend (React 18 + Ant Design)
+- ✅ Modern UI với Ant Design components
+- ✅ Tab navigation: Dashboard, Folder Mode, File Mode
+- ✅ Search panel với advanced filters
+- ✅ Responsive design cho desktop
+- ✅ Copy-to-clipboard utilities
+- ✅ API service layer cho communication
+
+#### Database
+- ✅ SQLite database với optimized indexes
+- ✅ Foreign key relationships (folders ↔ files)
+- ✅ Automatic timestamps (created_at, modified_at, scanned_at)
+- ✅ Performance indexes cho search operations
+
+### Technical Details
+
+#### API Endpoints
+- `POST /api/scan/folder` - Folder-only scanning
+- `POST /api/scan/file` - File detail scanning with metadata
+- `GET /api/scan/status` - Scan status and counts
+- `GET /api/search` - Advanced search với multiple filters
+- `GET /api/search/extensions` - File extension statistics
+- `GET /api/stats` - Database statistics và analytics
+- `GET /api/stats/export` - CSV export functionality
+- `GET /api/health` - Server health check
+
+#### Frontend Components
+- `Dashboard.js` - Statistics overview với Recharts
+- `FolderMode.js` - TreeView với folder selection
+- `FileMode.js` - DataTable với advanced features
+- `SearchPanel.js` - Search controls và scan triggers
+- `api.js` - Centralized API service layer
+
+#### Development Setup
+- ✅ Concurrent development servers (server:5000, client:3001)
+- ✅ Nodemon cho auto-restart server
+- ✅ React dev server với hot reload
+- ✅ ESLint configuration cho code quality
+
+### Fixed
+
+#### Runtime Errors
+- 🐛 Fixed `InputNumber.Group` deprecation → `Space.Compact`
+- 🐛 Fixed `Tabs.TabPane` deprecation → `items` prop
+- 🐛 Fixed SQL ambiguous column names trong file search queries
+- 🐛 Fixed React hooks dependency warnings
+- 🐛 Removed unused imports causing linting warnings
+
+#### Database Issues
+- 🐛 Fixed better-sqlite3 compilation issues → switched to sqlite3
+- 🐛 Fixed database initialization timing issues
+- 🐛 Fixed async/callback patterns cho sqlite3
+
+#### Development Issues
+- 🐛 Fixed port conflicts (React dev server port 3001)
+- 🐛 Fixed concurrent development script configuration
+- 🐛 Fixed build directory handling cho production
+
+### Project Structure
+- 📁 Organized route files (removed duplicate/backup files)
+- 📁 Centralized .gitignore management
+- 📁 Comprehensive documentation (README.md, SYSTEM_DESIGN.md)
+- 📁 Clean project structure với proper separation of concerns
+
+### Dependencies
+
+#### Backend
+- express: ^4.18.2 - Web framework
+- sqlite3: ^5.1.6 - Database driver
+- cors: ^2.8.5 - CORS middleware
+- fs-extra: ^11.1.1 - Enhanced file system operations
+
+#### Frontend
+- react: ^18.2.0 - UI framework
+- antd: ^5.8.6 - UI component library
+- recharts: ^2.8.0 - Charts và visualization
+
+#### Development
+- concurrently: ^8.2.0 - Run multiple npm scripts
+- nodemon: ^3.0.1 - Auto-restart server
+
+### Performance
+- ⚡ SQLite WAL mode cho concurrent operations
+- ⚡ Database indexes cho fast search
+- ⚡ Pagination cho large datasets
+- ⚡ Debounced search input
+- ⚡ Optimized React component renders
+
+### Security
+- 🔒 Local-only operation (no network calls)
+- 🔒 No external dependencies cho data
+- 🔒 User-controlled file system access
+- 🔒 Graceful error handling cho permission issues
+
+---
+
+## Migration Notes
+
+### From Excel/VBA
+- Thay thế Excel spreadsheet bằng SQLite database
+- Modern web UI thay cho VBA forms
+- Real-time search thay cho Excel filters
+- Better performance với large datasets
+- Portable database files
+
+### Database Schema
+```sql
+-- Folders table
+CREATE TABLE folders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  path TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  parent_path TEXT,
+  level INTEGER DEFAULT 0,
+  created_at DATETIME,
+  modified_at DATETIME,
+  accessed_at DATETIME,
+  scanned_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Files table  
+CREATE TABLE files (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  folder_id INTEGER,
+  name TEXT NOT NULL,
+  extension TEXT,
+  size INTEGER DEFAULT 0,
+  created_at DATETIME,
+  modified_at DATETIME,
+  accessed_at DATETIME,
+  scanned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE
+);
+```
+
+---
+
+## Commit History Summary
+
+1. **Initial Project Setup**
+   - Created full-stack architecture
+   - Set up Node.js backend với Express
+   - Set up React frontend với Ant Design
+
+2. **Database Implementation**
+   - SQLite database với optimized schema
+   - Database initialization scripts
+   - Performance indexes
+
+3. **API Development**
+   - Scan endpoints (folder/file modes)
+   - Search endpoints với advanced filtering
+   - Statistics endpoints với export
+
+4. **Frontend Implementation**
+   - Dashboard với charts và statistics
+   - Folder TreeView với selection
+   - File DataTable với advanced features
+   - Search panel với multiple filters
+
+5. **Bug Fixes và Optimization**
+   - Fixed React component deprecation warnings
+   - Fixed SQL query ambiguity issues
+   - Fixed development server configuration
+   - Cleaned up unused files
+
+6. **Documentation**
+   - Comprehensive README.md
+   - Detailed SYSTEM_DESIGN.md
+   - This CHANGELOG.md
+   - Updated copilot-instructions.md
+
+---
+
+**Full Commit**: Initial release of Media Database Manager v1.0.0 - Local-only web application for media file and folder management with modern React UI and SQLite backend.
