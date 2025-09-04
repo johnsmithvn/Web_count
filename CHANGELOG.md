@@ -8,6 +8,11 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- ✨ [2025-09-04] Folder Mode highlights all matched folders (multi-hit highlight)
+- �️ [2025-09-04] Ancestor Mode toggle (Folder Mode): choose between Option 1 (From match: last N parents) and Option 2 (From root: top N levels)
+- �🌳 [2025-09-04] Added ancestor levels display for Folder Mode search — setting "Ancestor Levels" to auto-show N parent folders and auto-expand tree to the matched node
+- ✨ [2025-09-04] Added matched-folder highlight in Folder Mode for quick visual focus
+- ✨ [2025-09-04] Added search API helper fields for Folder Mode: `expandPaths`, `anchorPath`, `showAllFromPath`, `highlightPath`
 - ⚡ [2025-09-03] Added Virtual Folder Tree - lazy loading với performance tối ưu cho hàng triệu folders, chỉ render visible nodes
 - 🔍 [2025-09-03] Added "Search In" dropdown - cho phép search theo Name Only, Path Only, hoặc Name & Path
 - 🎛️ [2025-09-03] Added Settings modal for search options - tách search settings ra popup modal riêng
@@ -25,6 +30,8 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - 🏷️ [2025-09-03] Organized extensions with OptGroup categories - phân loại thành Video 🎬, Audio 🎵, Images 🖼️, Documents 📄, Archives 📦, Code 💻 để dễ tìm kiếm
 
 ### Fixed
+- 🐛 [2025-09-04] Fixed stale results after Clear → New Search in Folder Mode by resetting tree state on new results and clearing results before searching
+- 🐛 [2025-09-04] Fixed search SQL builder producing `near "OR": syntax error` — guard empty sides when combining `(name OR path)` and align parameters for word-based mode (folders + files)
 - 🐛 [2025-09-03] Fixed file search path column reference → Changed from `f.path` to `folders.path` trong search queries
 - ⚠️ [2025-09-03] Fixed React warnings → Downgraded React 19 to React 18 for Ant Design compatibility  
 - 🐛 [2025-09-03] Fixed useForm warnings → Added destroyOnHidden=true cho all modals để cleanup form instances
@@ -35,6 +42,8 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - ⚠️ [2025-09-03] Fixed Form instance warning → Used getFieldsValue() instead of validateFields() để tránh warning khi form chưa mount
 
 ### Changed
+- 🔄 [2025-09-04] Folder Mode ancestors: when multiple matches exist, show all parent branches at the selected level (multiple anchors), not just a single parent
+- 🔄 [2025-09-04] Changed Ancestor Levels semantics in Folder Mode → count from ROOT and display only the selected branch at that level (siblings above anchor are hidden); the matched node is highlighted and the branch below remains visible
 - 🎨 [2025-09-03] Changed SearchPanel layout → Simplified to search bar + buttons, moved advanced options to Settings modal
 - 🎨 [2025-09-03] Changed FolderMode layout → Full width folder structure, folder details in popup modal instead of sidebar
 - 📊 [2025-09-03] Changed FileMode column layout → Increased Folder Path width, decreased other columns, reordered for better UX

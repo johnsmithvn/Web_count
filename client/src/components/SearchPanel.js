@@ -48,7 +48,9 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
     caseSensitive: false,
     extension: '',
     sizeRange: undefined,
-    dateRange: undefined
+  dateRange: undefined,
+  ancestorLevels: 0,
+  ancestorMode: 'from-root'
   });
   
   // Create form instances - warnings will be suppressed by destroyOnClose
@@ -141,6 +143,10 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
   const handleSearch = async () => {
     try {
       setSearchLoading(true);
+      // Ensure previous results are cleared before a new search
+      if (typeof onClearSearch === 'function') {
+        onClearSearch();
+      }
       const searchValues = await searchForm.validateFields(['query']);
       
       const searchParams = {
@@ -154,6 +160,8 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
         sizeMax: searchSettings.sizeRange?.[1] || '',
         dateFrom: searchSettings.dateRange?.[0]?.format('YYYY-MM-DD') || '',
         dateTo: searchSettings.dateRange?.[1]?.format('YYYY-MM-DD') || '',
+  ancestorLevels: Number.isFinite(Number(searchSettings.ancestorLevels)) ? Number(searchSettings.ancestorLevels) : 0,
+  ancestorMode: searchSettings.ancestorMode || 'from-root',
         page: 1,
         limit: 100
       };
@@ -389,6 +397,23 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item
+                label="Ancestor Mode (Folder Mode)"
+                name="ancestorMode"
+                tooltip={
+                  <div>
+                    <div><strong>Option 1 – From match:</strong> Include the last N parents above the result (… E → D → C → B → Match).</div>
+                    <div><strong>Option 2 – From root:</strong> Count from the top and start the visible chain at level N (A → B → C → D → … → Match).</div>
+                  </div>
+                }
+              >
+                <Select defaultValue="from-root">
+                  <Option value="from-match">Option 1 — From match (last N parents)</Option>
+                  <Option value="from-root">Option 2 — From root (top N levels)</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
                 label="Extension"
                 name="extension"
               >
@@ -403,6 +428,17 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 valuePropName="checked"
               >
                 <Switch />
+              </Form.Item>
+            </Col>
+
+            <Col span={8}>
+              <Form.Item
+                label="Ancestor Levels (Folder Mode)"
+                name="ancestorLevels"
+                tooltip="Số level ancestors để hiển thị. Cách tính được chọn ở 'Ancestor Mode'. 0 = tắt"
+                rules={[{ type: 'number', min: 0, max: 20 }]}
+              >
+                <InputNumber min={0} max={20} style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>

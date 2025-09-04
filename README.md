@@ -23,6 +23,7 @@
 ### 📊 Giao diện 3 tabs
 1. **Dashboard**: Thống kê với biểu đồ
 2. **Folder Mode**: TreeView hiển thị cấu trúc thư mục
+  - Ancestor Levels (Folder Mode): đếm từ gốc (root) xuống. Khi > 0, UI chỉ hiển thị 1 nhánh tại cấp đã chọn (ẩn các folder cùng cấp khác ở trên), tự động mở từ gốc → tới kết quả và làm nổi bật folder trúng.
 3. **File Mode**: Bảng dữ liệu files có thể sắp xếp
 
 ### 🔎 Khả năng tìm kiếm
@@ -30,6 +31,7 @@
 - Nhiều chế độ: exact match, fuzzy search, regex
 - Toggle case-sensitive/insensitive
 - Lọc theo extension, khoảng ngày, kích thước
+ - Folder Mode helpers (server response): `expandPaths` (chuỗi từ root → match), `anchorPath` (node tại cấp được chọn), `showAllFromPath` (đứa con của anchor dẫn xuống kết quả), `highlightPath` (path cần highlight)
 
 ### 🛠️ Tiện ích
 - Copy đường dẫn file/thư mục

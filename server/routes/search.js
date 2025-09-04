@@ -54,7 +54,9 @@ router.get('/', (req, res) => {
       sizeMin = '',
       sizeMax = '',
       dateFrom = '',
-      dateTo = '',
+    dateTo = '',
+  ancestorLevels = '0',
+    ancestorMode = 'from-root', // 'from-root' | 'from-match'
       page = 1,
       limit = 100
     } = req.query;
@@ -64,6 +66,27 @@ router.get('/', (req, res) => {
 
     let results = { folders: [], files: [], totalFolders: 0, totalFiles: 0 };
 
+    // Helper: check if a folder NAME matches query according to mode/case rules
+    const doesNameMatch = (nameVal) => {
+      if (!query) return false;
+      const cs = caseSensitive === 'true';
+      const name = String(nameVal || '');
+      const q = String(query);
+      if (mode === 'exact') {
+        return cs ? name === q : name.toLowerCase() === q.toLowerCase();
+      }
+      if (mode === 'word-based') {
+        const words = q.trim().split(/\s+/).filter(Boolean);
+        const hay = cs ? name : name.toLowerCase();
+        return words.every(w => (cs ? w : w.toLowerCase()) && hay.includes(cs ? w : w.toLowerCase()));
+      }
+      // regex is treated as fuzzy elsewhere; keep same here
+      // fuzzy (default)
+      const hay = cs ? name : name.toLowerCase();
+      const needle = cs ? q : q.toLowerCase();
+      return hay.includes(needle);
+    };
+
     // Build search conditions
     const searchConditions = [];
     const params = [];
@@ -71,7 +94,13 @@ router.get('/', (req, res) => {
     if (query) {
       let nameCondition = '';
       let pathCondition = '';
-      
+      let nameParams = [];
+      let pathParams = [];
+
+      const words = mode === 'word-based'
+        ? query.trim().split(/\s+/).filter(w => w.length > 0)
+        : [];
+
       if (mode === 'exact') {
         if (caseSensitive === 'true') {
           nameCondition = 'name = ?';
@@ -80,6 +109,9 @@ router.get('/', (req, res) => {
           nameCondition = 'LOWER(name) = LOWER(?)';
           pathCondition = 'LOWER(path) = LOWER(?)';
         }
+        const v = (val) => val;
+        nameParams = [v(query)];
+        pathParams = [v(query)];
       } else if (mode === 'fuzzy') {
         if (caseSensitive === 'true') {
           nameCondition = 'name LIKE ?';
@@ -88,67 +120,47 @@ router.get('/', (req, res) => {
           nameCondition = 'LOWER(name) LIKE LOWER(?)';
           pathCondition = 'LOWER(path) LIKE LOWER(?)';
         }
+        const like = (val) => `%${val}%`;
+        nameParams = [like(query)];
+        pathParams = [like(query)];
       } else if (mode === 'word-based') {
         // Word-based search: tách query thành các words và match tất cả
-        const words = query.trim().split(/\s+/).filter(word => word.length > 0);
         console.log('Word-based search - Query:', query, 'Words:', words);
-        
-        const wordConditions = [];
-        
-        words.forEach(word => {
-          if (caseSensitive === 'true') {
-            wordConditions.push('name LIKE ?');
-          } else {
-            wordConditions.push('LOWER(name) LIKE LOWER(?)');
-          }
-        });
-        
-        nameCondition = wordConditions.join(' AND ');
-        
-        // For path condition
-        const pathWordConditions = [];
-        words.forEach(word => {
-          if (caseSensitive === 'true') {
-            pathWordConditions.push('path LIKE ?');
-          } else {
-            pathWordConditions.push('LOWER(path) LIKE LOWER(?)');
-          }
-        });
-        
-        pathCondition = pathWordConditions.join(' AND ');
+
+        const toCond = (col) => words.map(() => (caseSensitive === 'true' ? `${col} LIKE ?` : `LOWER(${col}) LIKE LOWER(?)`)).join(' AND ');
+        nameCondition = words.length ? toCond('name') : '';
+        pathCondition = words.length ? toCond('path') : '';
+        nameParams = words.map(w => `%${w}%`);
+        pathParams = words.map(w => `%${w}%`);
         console.log('Word-based conditions - Name:', nameCondition, 'Path:', pathCondition);
       }
-      
+
+      // Attach conditions according to searchIn
       if (searchIn === 'name') {
-        searchConditions.push(nameCondition);
-        if (mode === 'word-based') {
-          const words = query.trim().split(/\s+/).filter(word => word.length > 0);
-          words.forEach(word => params.push(`%${word}%`));
-        } else {
-          params.push(mode === 'fuzzy' ? `%${query}%` : query);
+        if (nameCondition) {
+          searchConditions.push(`(${nameCondition})`);
+          params.push(...nameParams);
         }
       } else if (searchIn === 'path') {
-        searchConditions.push(pathCondition);
-        if (mode === 'word-based') {
-          const words = query.trim().split(/\s+/).filter(word => word.length > 0);
-          words.forEach(word => params.push(`%${word}%`));
-        } else {
-          params.push(mode === 'fuzzy' ? `%${query}%` : query);
+        if (pathCondition) {
+          searchConditions.push(`(${pathCondition})`);
+          params.push(...pathParams);
         }
       } else { // both
-        searchConditions.push(`(${nameCondition} OR ${pathCondition})`);
-        if (mode === 'word-based') {
-          const words = query.trim().split(/\s+/).filter(word => word.length > 0);
-          // Add parameters for name condition
-          words.forEach(word => params.push(`%${word}%`));
-          // Add parameters for path condition
-          words.forEach(word => params.push(`%${word}%`));
-        } else {
-          params.push(mode === 'fuzzy' ? `%${query}%` : query);
-          params.push(mode === 'fuzzy' ? `%${query}%` : query);
+        const hasName = !!nameCondition;
+        const hasPath = !!pathCondition;
+        if (hasName && hasPath) {
+          searchConditions.push(`((${nameCondition}) OR (${pathCondition}))`);
+          params.push(...nameParams, ...pathParams);
+        } else if (hasName) {
+          searchConditions.push(`(${nameCondition})`);
+          params.push(...nameParams);
+        } else if (hasPath) {
+          searchConditions.push(`(${pathCondition})`);
+          params.push(...pathParams);
         }
       }
-      
+
       // Note: SQLite doesn't support REGEXP by default, so we'll treat it as fuzzy
     }
 
@@ -165,16 +177,23 @@ router.get('/', (req, res) => {
     const whereClause = searchConditions.length > 0 ? 
       `WHERE ${searchConditions.join(' AND ')}` : '';
 
+    // Helper: when ancestorLevels>0 and query targets folders, fetch ancestors via recursive CTE
+  const includeAncestors = !!query && Number.parseInt(ancestorLevels) > 0 && (searchType === 'folders' || searchType === 'both');
+
     // Search folders
     if (searchType === 'folders' || searchType === 'both') {
-      const folderQuery = `
+      const baseFolderQuery = `
         SELECT id, path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at
         FROM folders 
         ${whereClause}
+      `;
+
+      const folderQuery = `
+        ${baseFolderQuery}
         ORDER BY path
         LIMIT ? OFFSET ?
       `;
-      
+
       const countQuery = `
         SELECT COUNT(*) as count FROM folders ${whereClause}
       `;
@@ -183,25 +202,108 @@ router.get('/', (req, res) => {
         if (err) {
           console.warn('Folder search error:', err.message);
           results.folders = [];
-        } else {
-          results.folders = folders || [];
+          return afterFolder();
         }
 
-        db.get(countQuery, params, (err, count) => {
-          if (err) {
-            console.warn('Folder count error:', err.message);
-            results.totalFolders = 0;
-          } else {
-            results.totalFolders = count.count || 0;
-          }
+        const pageMatches = folders || [];
+        const n = includeAncestors ? Math.max(0, Math.min(20, parseInt(ancestorLevels))) : 0;
 
-          // Search files if needed
-          if (searchType === 'files' || searchType === 'both') {
-            searchFiles();
-          } else {
-            sendResults();
+        // Option 2 semantics: count from ROOT. When n>0, include the full ancestor chain
+        // from the root down to each match so the tree can render a connected path.
+  if (includeAncestors && pageMatches.length > 0 && n > 0) {
+          const needed = new Set();
+          const expandSet = new Set();
+          const anchorSet = new Set();
+          const branchChildSet = new Set();
+          const highlightSet = new Set();
+
+          pageMatches.forEach(m => {
+            if (!m?.path) return;
+            if (doesNameMatch(m.name)) {
+              highlightSet.add(m.path);
+            }
+            // Build chain from match up to root
+            const chain = [];
+            let cur = m.path;
+            let safety = 0;
+            while (cur && safety < 300) {
+              chain.push(cur);
+              const idx = cur.lastIndexOf('\\');
+              if (idx <= 2) break;
+              cur = cur.substring(0, idx);
+              safety++;
+            }
+            const chainFromRoot = chain.reverse();
+
+            // Collect all nodes needed for tree rendering and auto-expand
+            chainFromRoot.forEach(p => {
+              needed.add(p);
+              expandSet.add(p);
+            });
+
+            // Determine anchor index based on mode
+            let anchorIndex;
+            if (ancestorMode === 'from-match') {
+              // Include last N parents above the match
+              // chainFromRoot: [root ... parent, match]
+              // N=1 -> anchor at parent; N=0 -> anchor at match
+              const lastIdx = chainFromRoot.length - 1;
+              anchorIndex = Math.max(0, lastIdx - n);
+            } else {
+              // from-root (default) — count from top
+              anchorIndex = Math.min(n, Math.max(0, chainFromRoot.length - 1));
+            }
+            const anchor = chainFromRoot[anchorIndex] || chainFromRoot[chainFromRoot.length - 1];
+            if (anchor) anchorSet.add(anchor);
+            const branchIndex = Math.min(anchorIndex + 1, chainFromRoot.length - 1);
+            const branchChild = chainFromRoot[branchIndex];
+            if (branchChild) branchChildSet.add(branchChild);
+          });
+
+          const placeholders = Array.from(needed).map(() => '?').join(',');
+          const selectAnc = `
+            SELECT id, path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at
+            FROM folders
+            WHERE path IN (${placeholders})
+          `;
+
+          db.all(selectAnc, Array.from(needed), (err2, rows) => {
+            results.folders = err2 ? pageMatches : (rows || []).sort((a, b) => a.path.localeCompare(b.path));
+
+            // Provide helpers as arrays
+            results.expandPaths = Array.from(expandSet);
+            results.anchorPaths = Array.from(anchorSet);
+            results.showAllFromPaths = Array.from(branchChildSet);
+            results.highlightPaths = Array.from(highlightSet);
+
+            // Backward-compatible single values (first items if present)
+            if (results.anchorPaths.length > 0) results.anchorPath = results.anchorPaths[0];
+            if (results.showAllFromPaths.length > 0) results.showAllFromPath = results.showAllFromPaths[0];
+            if (results.highlightPaths.length > 0) results.highlightPath = results.highlightPaths[0];
+
+            afterFolder();
+          });
+        } else {
+          results.folders = pageMatches;
+          // Highlight only those whose NAME matched (avoid path-only highlight)
+          if (pageMatches.length > 0) {
+            const hp = pageMatches.filter(m => doesNameMatch(m.name)).map(m => m.path);
+            results.highlightPaths = hp;
+            if (hp.length > 0) results.highlightPath = hp[0];
           }
-        });
+          afterFolder();
+        }
+
+        function afterFolder() {
+          db.get(countQuery, params, (err3, count) => {
+            results.totalFolders = err3 ? 0 : (count?.count || 0);
+            if (searchType === 'files' || searchType === 'both') {
+              searchFiles();
+            } else {
+              sendResults();
+            }
+          });
+        }
       });
     } else if (searchType === 'files') {
       searchFiles();
@@ -217,7 +319,13 @@ router.get('/', (req, res) => {
       if (query) {
         let nameCondition = '';
         let pathCondition = '';
-        
+        let nameParams = [];
+        let pathParams = [];
+
+        const words = mode === 'word-based'
+          ? query.trim().split(/\s+/).filter(w => w.length > 0)
+          : [];
+
         if (mode === 'exact') {
           if (caseSensitive === 'true') {
             nameCondition = 'f.name = ?';
@@ -226,6 +334,8 @@ router.get('/', (req, res) => {
             nameCondition = 'LOWER(f.name) = LOWER(?)';
             pathCondition = 'LOWER(folders.path) = LOWER(?)';
           }
+          nameParams = [query];
+          pathParams = [query];
         } else if (mode === 'fuzzy') {
           if (caseSensitive === 'true') {
             nameCondition = 'f.name LIKE ?';
@@ -234,61 +344,43 @@ router.get('/', (req, res) => {
             nameCondition = 'LOWER(f.name) LIKE LOWER(?)';
             pathCondition = 'LOWER(folders.path) LIKE LOWER(?)';
           }
+          nameParams = [`%${query}%`];
+          pathParams = [`%${query}%`];
         } else if (mode === 'word-based') {
           // Word-based search for files
-          const words = query.trim().split(/\s+/).filter(word => word.length > 0);
           console.log('File search - Word-based search - Query:', query, 'Words:', words);
-          
-          const nameWordConditions = [];
-          words.forEach(word => {
-            if (caseSensitive === 'true') {
-              nameWordConditions.push('f.name LIKE ?');
-            } else {
-              nameWordConditions.push('LOWER(f.name) LIKE LOWER(?)');
-            }
-          });
-          nameCondition = nameWordConditions.join(' AND ');
-          
-          const pathWordConditions = [];
-          words.forEach(word => {
-            if (caseSensitive === 'true') {
-              pathWordConditions.push('folders.path LIKE ?');
-            } else {
-              pathWordConditions.push('LOWER(folders.path) LIKE LOWER(?)');
-            }
-          });
-          pathCondition = pathWordConditions.join(' AND ');
-          
+
+          const toCond = (col) => words.map(() => (caseSensitive === 'true' ? `${col} LIKE ?` : `LOWER(${col}) LIKE LOWER(?)`)).join(' AND ');
+          nameCondition = words.length ? toCond('f.name') : '';
+          pathCondition = words.length ? toCond('folders.path') : '';
+          nameParams = words.map(w => `%${w}%`);
+          pathParams = words.map(w => `%${w}%`);
+
           console.log('File search - Word-based conditions - Name:', nameCondition, 'Path:', pathCondition);
         }
-        
+
         if (searchIn === 'name') {
-          fileConditions.push(nameCondition);
-          if (mode === 'word-based') {
-            const words = query.trim().split(/\s+/).filter(word => word.length > 0);
-            words.forEach(word => fileParams.push(`%${word}%`));
-          } else {
-            fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
+          if (nameCondition) {
+            fileConditions.push(`(${nameCondition})`);
+            fileParams.push(...nameParams);
           }
         } else if (searchIn === 'path') {
-          fileConditions.push(pathCondition);
-          if (mode === 'word-based') {
-            const words = query.trim().split(/\s+/).filter(word => word.length > 0);
-            words.forEach(word => fileParams.push(`%${word}%`));
-          } else {
-            fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
+          if (pathCondition) {
+            fileConditions.push(`(${pathCondition})`);
+            fileParams.push(...pathParams);
           }
         } else { // both
-          fileConditions.push(`(${nameCondition} OR ${pathCondition})`);
-          if (mode === 'word-based') {
-            const words = query.trim().split(/\s+/).filter(word => word.length > 0);
-            // Add parameters for name condition
-            words.forEach(word => fileParams.push(`%${word}%`));
-            // Add parameters for path condition  
-            words.forEach(word => fileParams.push(`%${word}%`));
-          } else {
-            fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
-            fileParams.push(mode === 'fuzzy' ? `%${query}%` : query);
+          const hasName = !!nameCondition;
+          const hasPath = !!pathCondition;
+          if (hasName && hasPath) {
+            fileConditions.push(`((${nameCondition}) OR (${pathCondition}))`);
+            fileParams.push(...nameParams, ...pathParams);
+          } else if (hasName) {
+            fileConditions.push(`(${nameCondition})`);
+            fileParams.push(...nameParams);
+          } else if (hasPath) {
+            fileConditions.push(`(${pathCondition})`);
+            fileParams.push(...pathParams);
           }
         }
       }

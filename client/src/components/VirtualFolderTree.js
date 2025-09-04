@@ -23,7 +23,8 @@ const TreeNode = ({
   onToggle, 
   onSelect, 
   children = null,
-  isLoading = false 
+  isLoading = false,
+  isHighlight = false
 }) => {
   const indentSize = 24;
   const hasChildren = node.hasChildren || (children && children.length > 0);
@@ -84,7 +85,12 @@ const TreeNode = ({
 
         {/* Folder Name */}
         <Text 
-          style={{ flex: 1, userSelect: 'none' }}
+          style={{ 
+            flex: 1, 
+            userSelect: 'none', 
+            fontWeight: isHighlight ? 600 : 400,
+            color: isHighlight ? '#d4380d' : 'inherit'
+          }}
           onClick={() => onSelect(node)}
           title={`${node.name}\nPath: ${node.path}\nLevel: ${node.level}`}
         >
@@ -111,11 +117,61 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
   const [exportLoading, setExportLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredNodes, setFilteredNodes] = useState([]);
+  const [highlightPaths, setHighlightPaths] = useState(new Set());
+  const [anchorPaths, setAnchorPaths] = useState(new Set());
+  const [showAllFromPaths, setShowAllFromPaths] = useState(new Set());
+
+  // Hard reset tree state when search results change (clear or new search)
+  useEffect(() => {
+    // Reset internal caches and UI state so a new search starts clean
+    setExpandedPaths(new Set());
+    setLoadingPaths(new Set());
+    setChildrenCache(new Map());
+    setSelectedFolder(null);
+    setModalVisible(false);
+    setSearchTerm('');
+  setHighlightPaths(new Set());
+  setAnchorPaths(new Set());
+  setShowAllFromPaths(new Set());
+    // Note: expandPaths and helpers will be applied by the effect below if present
+  }, [searchResults]);
+
+  // Auto expand paths provided by search results (e.g., ancestors + target)
+  useEffect(() => {
+    if (!searchResults?.expandPaths || !Array.isArray(searchResults.expandPaths)) return;
+    const toExpand = new Set(expandedPaths);
+    searchResults.expandPaths.forEach(p => toExpand.add(p));
+    setExpandedPaths(toExpand);
+  // New multi-value helpers
+  if (Array.isArray(searchResults.highlightPaths)) setHighlightPaths(new Set(searchResults.highlightPaths));
+  else if (searchResults.highlightPath) setHighlightPaths(new Set([searchResults.highlightPath]));
+
+  if (Array.isArray(searchResults.anchorPaths)) setAnchorPaths(new Set(searchResults.anchorPaths));
+  else if (searchResults.anchorPath) setAnchorPaths(new Set([searchResults.anchorPath]));
+
+  if (Array.isArray(searchResults.showAllFromPaths)) setShowAllFromPaths(new Set(searchResults.showAllFromPaths));
+  else if (searchResults.showAllFromPath) setShowAllFromPaths(new Set([searchResults.showAllFromPath]));
+
+    // Preload children for each path in the chain to make them visible
+    (async () => {
+      for (const p of searchResults.expandPaths) {
+        if (!childrenCache.has(p)) {
+          await loadChildren(p);
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchResults?.expandPaths]);
 
   // Extract root folders (level 0 or folders without parents in current search)
   const rootFolders = useMemo(() => {
     if (!searchResults?.folders) return [];
-    
+    // If anchorPaths present, show only those nodes at the top (support multiple branches)
+    if (anchorPaths && anchorPaths.size > 0) {
+      const anchors = searchResults.folders.filter(f => anchorPaths.has(f.path));
+      return anchors.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
     const folders = searchResults.folders;
     const pathSet = new Set(folders.map(f => f.path));
     
@@ -123,7 +179,7 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
       // Root if level is 0 OR parent is not in current search results
       return folder.level === 0 || !pathSet.has(folder.parent_path);
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [searchResults]);
+  }, [searchResults, anchorPaths]);
 
   // Filter folders based on search term
   useEffect(() => {
@@ -210,22 +266,31 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
     const path = folder.path;
     const isExpanded = expandedPaths.has(path);
     const isLoading = loadingPaths.has(path);
-    const children = childrenCache.get(path) || [];
+    let children = childrenCache.get(path) || [];
     const hasChildren = folder.hasChildren || children.length > 0;
 
     // If we don't know if this folder has children, assume it might
     // (This could be enhanced with a backend API that returns child counts)
     folder.hasChildren = hasChildren || folder.level < 10; // Assume folders can have children
 
-    return (
-      <TreeNode
+  const isHighlight = highlightPaths.has(path);
+
+    // If this node is the anchor, restrict visible children to the single branch child
+    if (anchorPaths.size > 0 && showAllFromPaths.size > 0 && anchorPaths.has(path) && children.length > 0) {
+      // Keep only children that are part of any branch towards matches
+      children = children.filter(ch => showAllFromPaths.has(ch.path) || highlightPaths.has(ch.path));
+    }
+
+  return (
+    <TreeNode
         key={path}
         node={folder}
         level={level}
         isExpanded={isExpanded}
         onToggle={handleToggle}
         onSelect={handleSelect}
-        isLoading={isLoading}
+    isLoading={isLoading}
+    isHighlight={isHighlight}
         children={
           isExpanded && children.length > 0 
             ? children.map(child => renderNode(child, level + 1))
@@ -233,7 +298,7 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
         }
       />
     );
-  }, [expandedPaths, loadingPaths, childrenCache, handleToggle, handleSelect]);
+  }, [expandedPaths, loadingPaths, childrenCache, handleToggle, handleSelect, highlightPaths, anchorPaths, showAllFromPaths]);
 
   // Expand all visible nodes (first 2 levels only to prevent performance issues)
   const expandAll = useCallback(() => {
