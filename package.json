@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
     "server:dev": "cd server && npm run dev",
-    "client:dev": "cd client && set PORT=5001 && npm start",
+    "client:dev": "cd client && set HOST=0.0.0.0&& set PORT=5001&& npm start",
     "build": "cd client && npm run build",
     "db:init": "cd server && npm run db:init",
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",

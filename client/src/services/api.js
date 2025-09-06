@@ -1,4 +1,10 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+// Dynamic API base URL - use current host but port 5000 for backend
+const getApiBaseUrl = () => {
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}:5000/api`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export class ApiService {
   static async request(endpoint, options = {}) {
@@ -60,7 +66,7 @@ export class ApiService {
 
   static async exportData(type, format = 'csv') {
     const queryString = new URLSearchParams({ type, format }).toString();
-    const response = await fetch(`${API_BASE_URL}/stats/export?${queryString}`);
+    const response = await fetch(`${getApiBaseUrl()}/stats/export?${queryString}`);
     
     if (!response.ok) {
       const error = await response.json();

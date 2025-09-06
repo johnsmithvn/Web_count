@@ -74,8 +74,26 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
+  console.log(`Local access: http://localhost:${PORT}`);
+  
+  // Try to get and display network IP
+  const os = require('os');
+  const networkInterfaces = os.networkInterfaces();
+  const networkIPs = [];
+  
+  Object.keys(networkInterfaces).forEach(interfaceName => {
+    networkInterfaces[interfaceName].forEach(interface => {
+      if (interface.family === 'IPv4' && !interface.internal) {
+        networkIPs.push(interface.address);
+      }
+    });
+  });
+  
+  if (networkIPs.length > 0) {
+    console.log(`Network access: ${networkIPs.map(ip => `http://${ip}:${PORT}`).join(', ')}`);
+  }
 });
 
 module.exports = { app, db };
