@@ -27,24 +27,31 @@ db.run('PRAGMA foreign_keys = ON');
 // Make db available to routes
 app.locals.db = db;
 
+// Import authentication middleware
+const { authenticateToken, extractUserId } = require('./middleware/auth');
+
 // Import routes
+const authRoutes = require('./routes/auth');
 const scanRoutes = require('./routes/scan');
 const searchRoutes = require('./routes/search');
 const statsRoutes = require('./routes/stats');
 const deleteRoutes = require('./routes/delete');
 const addRoutes = require('./routes/add');
 
-// Use routes
-app.use('/api/scan', scanRoutes);
-app.use('/api/search', searchRoutes);
-app.use('/api/stats', statsRoutes);
-app.use('/api/delete', deleteRoutes);
-app.use('/api/add', addRoutes);
+// Public routes (no authentication required)
+app.use('/api/auth', authRoutes);
 
-// Health check endpoint
+// Health check endpoint (public)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Media Database Server is running' });
 });
+
+// Protected routes (authentication required)
+app.use('/api/scan', authenticateToken, extractUserId, scanRoutes);
+app.use('/api/search', authenticateToken, extractUserId, searchRoutes);
+app.use('/api/stats', authenticateToken, extractUserId, statsRoutes);
+app.use('/api/delete', authenticateToken, extractUserId, deleteRoutes);
+app.use('/api/add', authenticateToken, extractUserId, addRoutes);
 
 // Serve React app for any non-API routes (only if build exists)
 app.get('*', (req, res) => {
@@ -53,10 +60,16 @@ app.get('*', (req, res) => {
     res.sendFile(indexPath);
   } else {
     res.json({ 
-      message: 'Media Database API Server', 
+      message: 'Media Database API Server with Authentication', 
       status: 'Development Mode',
-      frontend: 'Run React dev server separately on port 3001',
-      api_health: '/api/health'
+      frontend: 'Run React dev server separately on port 5001',
+      api_health: '/api/health',
+      auth_endpoints: {
+        login: 'POST /api/auth/login',
+        register: 'POST /api/auth/register',
+        profile: 'GET /api/auth/profile',
+        logout: 'POST /api/auth/logout'
+      }
     });
   }
 });
@@ -77,6 +90,8 @@ process.on('SIGINT', () => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://0.0.0.0:${PORT}`);
   console.log(`Local access: http://localhost:${PORT}`);
+  console.log('🔐 Authentication enabled');
+  console.log('👤 Default admin account: admin/admin');
   
   // Try to get and display network IP
   const os = require('os');

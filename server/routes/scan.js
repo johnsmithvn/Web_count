@@ -7,6 +7,7 @@ const router = express.Router();
 // Scan folders only (mode 1)
 router.post('/folder', async (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   
   try {
     const { rootPath, maxDepth = 10 } = req.body;
@@ -15,10 +16,10 @@ router.post('/folder', async (req, res) => {
       return res.status(400).json({ error: 'Invalid root path' });
     }
 
-    console.log(`Starting folder scan: ${rootPath}`);
+    console.log(`Starting folder scan for user ${userId}: ${rootPath}`);
     
-    // Clear existing data for this root path
-    db.run('DELETE FROM folders WHERE path LIKE ?', [`${rootPath}%`], (err) => {
+    // Clear existing data for this root path and user
+    db.run('DELETE FROM folders WHERE user_id = ? AND path LIKE ?', [userId, `${rootPath}%`], (err) => {
       if (err) console.error('Error clearing folders:', err);
     });
 
@@ -32,12 +33,13 @@ router.post('/folder', async (req, res) => {
         const parentPath = path.dirname(dirPath);
         const name = path.basename(dirPath);
 
-        // Insert folder record
+        // Insert folder record with user_id
         db.run(`
           INSERT OR REPLACE INTO folders 
-          (path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          (user_id, path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         `, [
+          userId,
           dirPath,
           name,
           parentPath !== dirPath ? parentPath : null,
@@ -78,7 +80,15 @@ router.post('/folder', async (req, res) => {
 
     // Wait a bit for async operations to complete
     setTimeout(() => {
-      console.log(`Folder scan completed. Scanned ${scannedCount} folders.`);
+      // Record scan in scans table
+      db.run(`
+        INSERT INTO scans (user_id, scan_type, root_path, status, folders_count, files_count, scan_options, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `, [userId, 'folder', rootPath, 'completed', scannedCount, 0, JSON.stringify({ maxDepth })], (err) => {
+        if (err) console.error('Error recording scan:', err);
+      });
+
+      console.log(`Folder scan completed for user ${userId}. Scanned ${scannedCount} folders.`);
       
       res.json({
         success: true,
@@ -97,6 +107,7 @@ router.post('/folder', async (req, res) => {
 // Scan files with metadata (mode 2)
 router.post('/file', async (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   
   try {
     const { rootPath, maxDepth = 10, includeExtensions = [], excludeExtensions = [] } = req.body;
@@ -105,20 +116,20 @@ router.post('/file', async (req, res) => {
       return res.status(400).json({ error: 'Invalid root path' });
     }
 
-    console.log(`Starting file scan: ${rootPath}`);
+    console.log(`Starting file scan for user ${userId}: ${rootPath}`);
     console.log(`Include extensions: ${includeExtensions.length > 0 ? includeExtensions.join(', ') : 'All'}`);
     console.log(`Exclude extensions: ${excludeExtensions.length > 0 ? excludeExtensions.join(', ') : 'None'}`);
     
-    // Clear existing data for this root path
+    // Clear existing data for this root path and user
     db.run(`
-      DELETE FROM files WHERE folder_id IN (
-        SELECT id FROM folders WHERE path LIKE ?
+      DELETE FROM files WHERE user_id = ? AND folder_id IN (
+        SELECT id FROM folders WHERE user_id = ? AND path LIKE ?
       )
-    `, [`${rootPath}%`], (err) => {
+    `, [userId, userId, `${rootPath}%`], (err) => {
       if (err) console.error('Error clearing files:', err);
     });
     
-    db.run('DELETE FROM folders WHERE path LIKE ?', [`${rootPath}%`], (err) => {
+    db.run('DELETE FROM folders WHERE user_id = ? AND path LIKE ?', [userId, `${rootPath}%`], (err) => {
       if (err) console.error('Error clearing folders:', err);
     });
 
@@ -133,12 +144,13 @@ router.post('/file', async (req, res) => {
         const parentPath = path.dirname(dirPath);
         const name = path.basename(dirPath);
 
-        // Insert folder record
+        // Insert folder record with user_id
         db.run(`
           INSERT OR REPLACE INTO folders 
-          (path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          (user_id, path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         `, [
+          userId,
           dirPath,
           name,
           parentPath !== dirPath ? parentPath : null,
@@ -155,7 +167,7 @@ router.post('/file', async (req, res) => {
           scannedFolders++;
 
           // Get folder ID for file associations
-          db.get('SELECT id FROM folders WHERE path = ?', [dirPath], (err, row) => {
+          db.get('SELECT id FROM folders WHERE user_id = ? AND path = ?', [userId, dirPath], (err, row) => {
             if (err) {
               console.error('Error getting folder ID:', err);
               return;
@@ -190,9 +202,10 @@ router.post('/file', async (req, res) => {
                     if (shouldInclude && !shouldExclude) {
                       db.run(`
                         INSERT INTO files 
-                        (folder_id, name, extension, size, created_at, modified_at, accessed_at, scanned_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        (user_id, folder_id, name, extension, size, created_at, modified_at, accessed_at, scanned_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                       `, [
+                        userId,
                         folderId,
                         item,
                         extension,
@@ -226,7 +239,15 @@ router.post('/file', async (req, res) => {
 
     // Wait for async operations to complete
     setTimeout(() => {
-      console.log(`File scan completed. Scanned ${scannedFolders} folders and ${scannedFiles} files.`);
+      // Record scan in scans table
+      db.run(`
+        INSERT INTO scans (user_id, scan_type, root_path, status, folders_count, files_count, scan_options, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `, [userId, 'file', rootPath, 'completed', scannedFolders, scannedFiles, JSON.stringify({ maxDepth, includeExtensions, excludeExtensions })], (err) => {
+        if (err) console.error('Error recording scan:', err);
+      });
+
+      console.log(`File scan completed for user ${userId}. Scanned ${scannedFolders} folders and ${scannedFiles} files.`);
       
       res.json({
         success: true,
@@ -246,14 +267,15 @@ router.post('/file', async (req, res) => {
 // Get scan status
 router.get('/status', (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   
   try {
-    db.get('SELECT COUNT(*) as count FROM folders', (err, folderCount) => {
+    db.get('SELECT COUNT(*) as count FROM folders WHERE user_id = ?', [userId], (err, folderCount) => {
       if (err) {
         return res.status(500).json({ error: 'Could not get folder count' });
       }
 
-      db.get('SELECT COUNT(*) as count FROM files', (err, fileCount) => {
+      db.get('SELECT COUNT(*) as count FROM files WHERE user_id = ?', [userId], (err, fileCount) => {
         if (err) {
           return res.status(500).json({ error: 'Could not get file count' });
         }
@@ -261,19 +283,33 @@ router.get('/status', (req, res) => {
         db.get(`
           SELECT MAX(scanned_at) as last_scan 
           FROM (
-            SELECT scanned_at FROM folders 
+            SELECT scanned_at FROM folders WHERE user_id = ?
             UNION ALL 
-            SELECT scanned_at FROM files
+            SELECT scanned_at FROM files WHERE user_id = ?
           )
-        `, (err, lastScan) => {
+        `, [userId, userId], (err, lastScan) => {
           if (err) {
             return res.status(500).json({ error: 'Could not get last scan' });
           }
 
-          res.json({
-            folders: folderCount.count,
-            files: fileCount.count,
-            lastScan: lastScan.last_scan
+          // Get recent scans
+          db.all(`
+            SELECT scan_type, root_path, status, folders_count, files_count, created_at, completed_at
+            FROM scans 
+            WHERE user_id = ?
+            ORDER BY created_at DESC 
+            LIMIT 5
+          `, [userId], (err, recentScans) => {
+            if (err) {
+              console.error('Error getting recent scans:', err);
+            }
+
+            res.json({
+              folders: folderCount.count,
+              files: fileCount.count,
+              lastScan: lastScan.last_scan,
+              recentScans: recentScans || []
+            });
           });
         });
       });

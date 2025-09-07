@@ -5,26 +5,27 @@ const router = express.Router();
 // Get database statistics
 router.get('/', (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   
   try {
-    // Basic counts
-    db.get('SELECT COUNT(*) as count FROM folders', (err, folderCount) => {
+    // Basic counts for current user
+    db.get('SELECT COUNT(*) as count FROM folders WHERE user_id = ?', [userId], (err, folderCount) => {
       if (err) {
         return res.status(500).json({ error: 'Could not get folder count' });
       }
 
-      db.get('SELECT COUNT(*) as count FROM files', (err, fileCount) => {
+      db.get('SELECT COUNT(*) as count FROM files WHERE user_id = ?', [userId], (err, fileCount) => {
         if (err) {
           return res.status(500).json({ error: 'Could not get file count' });
         }
 
-        // Total size
-        db.get('SELECT SUM(size) as total FROM files', (err, totalSize) => {
+        // Total size for current user
+        db.get('SELECT SUM(size) as total FROM files WHERE user_id = ?', [userId], (err, totalSize) => {
           if (err) {
             return res.status(500).json({ error: 'Could not get total size' });
           }
 
-          // File type distribution
+          // File type distribution for current user
           db.all(`
             SELECT 
               extension,
@@ -32,44 +33,45 @@ router.get('/', (req, res) => {
               SUM(size) as total_size,
               AVG(size) as avg_size
             FROM files 
-            WHERE extension IS NOT NULL AND extension != ''
+            WHERE user_id = ? AND extension IS NOT NULL AND extension != ''
             GROUP BY extension 
             ORDER BY count DESC
             LIMIT 20
-          `, (err, fileTypes) => {
+          `, [userId], (err, fileTypes) => {
             if (err) {
               console.warn('File types error:', err);
               fileTypes = [];
             }
 
-            // Folder depth distribution
+            // Folder depth distribution for current user
             db.all(`
               SELECT 
                 level,
                 COUNT(*) as count
               FROM folders 
+              WHERE user_id = ?
               GROUP BY level 
               ORDER BY level
-            `, (err, folderDepths) => {
+            `, [userId], (err, folderDepths) => {
               if (err) {
                 console.warn('Folder depths error:', err);
                 folderDepths = [];
               }
 
-              // Recent scans
-              db.get('SELECT MAX(scanned_at) as last_folder_scan FROM folders', (err, recentScans) => {
+              // Recent scans for current user
+              db.get('SELECT MAX(scanned_at) as last_folder_scan FROM folders WHERE user_id = ?', [userId], (err, recentScans) => {
                 if (err) {
                   console.warn('Recent scans error:', err);
                   recentScans = { last_folder_scan: null };
                 }
 
-                db.get('SELECT MAX(scanned_at) as last_file_scan FROM files', (err, recentFileScans) => {
+                db.get('SELECT MAX(scanned_at) as last_file_scan FROM files WHERE user_id = ?', [userId], (err, recentFileScans) => {
                   if (err) {
                     console.warn('Recent file scans error:', err);
                     recentFileScans = { last_file_scan: null };
                   }
 
-                  // Size distribution
+                  // Size distribution for current user
                   db.all(`
                     SELECT 
                       CASE 
@@ -82,6 +84,7 @@ router.get('/', (req, res) => {
                       COUNT(*) as count,
                       SUM(size) as total_size
                     FROM files
+                    WHERE user_id = ?
                     GROUP BY size_range
                     ORDER BY 
                       CASE size_range
@@ -91,13 +94,13 @@ router.get('/', (req, res) => {
                         WHEN '100MB - 1GB' THEN 4
                         WHEN 'Over 1GB' THEN 5
                       END
-                  `, (err, sizeDistribution) => {
+                  `, [userId], (err, sizeDistribution) => {
                     if (err) {
                       console.warn('Size distribution error:', err);
                       sizeDistribution = [];
                     }
 
-                    // Top 10 largest files
+                    // Top 10 largest files for current user
                     db.all(`
                       SELECT 
                         f.name,
@@ -105,16 +108,17 @@ router.get('/', (req, res) => {
                         f.size,
                         folders.path as folder_path
                       FROM files f
-                      LEFT JOIN folders ON f.folder_id = folders.id
+                      LEFT JOIN folders ON f.folder_id = folders.id AND f.user_id = folders.user_id
+                      WHERE f.user_id = ?
                       ORDER BY f.size DESC
                       LIMIT 10
-                    `, (err, largestFiles) => {
+                    `, [userId], (err, largestFiles) => {
                       if (err) {
                         console.warn('Largest files error:', err);
                         largestFiles = [];
                       }
 
-                      // Folders with most files
+                      // Folders with most files for current user
                       db.all(`
                         SELECT 
                           folders.path,
@@ -122,29 +126,30 @@ router.get('/', (req, res) => {
                           COUNT(files.id) as file_count,
                           SUM(files.size) as total_size
                         FROM folders
-                        LEFT JOIN files ON folders.id = files.folder_id
+                        LEFT JOIN files ON folders.id = files.folder_id AND folders.user_id = files.user_id
+                        WHERE folders.user_id = ?
                         GROUP BY folders.id, folders.path, folders.name
                         HAVING file_count > 0
                         ORDER BY file_count DESC
                         LIMIT 10
-                      `, (err, busiestFolders) => {
+                      `, [userId], (err, busiestFolders) => {
                         if (err) {
                           console.warn('Busiest folders error:', err);
                           busiestFolders = [];
                         }
 
-                        // Date-based statistics
+                        // Date-based statistics for current user
                         db.all(`
                           SELECT 
                             DATE(modified_at) as date,
                             COUNT(*) as files_modified
                           FROM files
-                          WHERE modified_at IS NOT NULL 
+                          WHERE user_id = ? AND modified_at IS NOT NULL 
                             AND DATE(modified_at) >= DATE('now', '-30 days')
                           GROUP BY DATE(modified_at)
                           ORDER BY date DESC
                           LIMIT 30
-                        `, (err, dateStats) => {
+                        `, [userId], (err, dateStats) => {
                           if (err) {
                             console.warn('Date stats error:', err);
                             dateStats = [];
@@ -188,6 +193,7 @@ router.get('/', (req, res) => {
 // Get detailed statistics for a specific path
 router.get('/path', (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   
   try {
     const { path: folderPath } = req.query;
@@ -196,8 +202,8 @@ router.get('/path', (req, res) => {
       return res.status(400).json({ error: 'Path parameter is required' });
     }
 
-    // Folder info
-    db.get('SELECT * FROM folders WHERE path = ?', [folderPath], (err, folderInfo) => {
+    // Folder info for current user
+    db.get('SELECT * FROM folders WHERE user_id = ? AND path = ?', [userId, folderPath], (err, folderInfo) => {
       if (err) {
         return res.status(500).json({ error: 'Could not get folder info' });
       }
@@ -206,7 +212,7 @@ router.get('/path', (req, res) => {
         return res.status(404).json({ error: 'Folder not found' });
       }
 
-      // Files in this folder
+      // Files in this folder for current user
       db.get(`
         SELECT 
           COUNT(*) as file_count,
@@ -215,35 +221,35 @@ router.get('/path', (req, res) => {
           MIN(size) as min_size,
           MAX(size) as max_size
         FROM files 
-        WHERE folder_id = ?
-      `, [folderInfo.id], (err, fileStats) => {
+        WHERE user_id = ? AND folder_id = ?
+      `, [userId, folderInfo.id], (err, fileStats) => {
         if (err) {
           return res.status(500).json({ error: 'Could not get file stats' });
         }
 
-        // File types in this folder
+        // File types in this folder for current user
         db.all(`
           SELECT 
             extension,
             COUNT(*) as count,
             SUM(size) as total_size
           FROM files 
-          WHERE folder_id = ? AND extension IS NOT NULL AND extension != ''
+          WHERE user_id = ? AND folder_id = ? AND extension IS NOT NULL AND extension != ''
           GROUP BY extension 
           ORDER BY count DESC
-        `, [folderInfo.id], (err, fileTypes) => {
+        `, [userId, folderInfo.id], (err, fileTypes) => {
           if (err) {
             console.warn('File types error:', err);
             fileTypes = [];
           }
 
-          // Subfolders
+          // Subfolders for current user
           db.get(`
             SELECT 
               COUNT(*) as subfolder_count
             FROM folders 
-            WHERE parent_path = ?
-          `, [folderPath], (err, subfolderStats) => {
+            WHERE user_id = ? AND parent_path = ?
+          `, [userId, folderPath], (err, subfolderStats) => {
             if (err) {
               console.warn('Subfolder stats error:', err);
               subfolderStats = { subfolder_count: 0 };
@@ -269,6 +275,7 @@ router.get('/path', (req, res) => {
 // Export data to CSV format
 router.get('/export', (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   
   try {
     const { type = 'files', format = 'csv' } = req.query;
@@ -284,6 +291,7 @@ router.get('/export', (req, res) => {
       query = `
         SELECT path, name, level, created_at, modified_at, accessed_at, scanned_at
         FROM folders 
+        WHERE user_id = ?
         ORDER BY path
       `;
       filename = 'folders.csv';
@@ -299,7 +307,8 @@ router.get('/export', (req, res) => {
           f.accessed_at,
           f.scanned_at
         FROM files f
-        LEFT JOIN folders ON f.folder_id = folders.id
+        LEFT JOIN folders ON f.folder_id = folders.id AND f.user_id = folders.user_id
+        WHERE f.user_id = ?
         ORDER BY folders.path, f.name
       `;
       filename = 'files.csv';
@@ -307,7 +316,7 @@ router.get('/export', (req, res) => {
       return res.status(400).json({ error: 'Invalid type. Use "files" or "folders"' });
     }
 
-    db.all(query, (err, data) => {
+    db.all(query, [userId], (err, data) => {
       if (err) {
         return res.status(500).json({ error: 'Export query failed', details: err.message });
       }
