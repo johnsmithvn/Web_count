@@ -1,3 +1,6 @@
+
+**QUAN TRỌNG**: Không cần Kiểm tra terminal và dự án hiện tại có đang chạy hay không, vì server luôn chạy nền, không cần khởi động lại.
+
 # Media Database Manager - Local Web Application
 
 This is a local-only web application for managing and searching media and folder databases. It replaces Excel/VBA workflows with a modern web interface.
@@ -30,6 +33,8 @@ This is a local-only web application for managing and searching media and folder
 ### Code Changes Protocol
 
 **QUAN TRỌNG**: Mỗi khi thực hiện fix bug, thêm feature, hoặc sửa đổi code, PHẢI cập nhật CHANGELOG.md
+**QUAN TRỌNG**: user sẽ là người test, không được tự ý tạo fiile test, backup , và luôn nhớ là sever đang chạy , k cần chạy lại
+
 
 #### Quy trình bắt buộc:
 1. **Trước khi fix/sửa**: Ghi nhận vấn đề trong CHANGELOG.md dưới mục `[Unreleased]`
@@ -106,12 +111,6 @@ This is a local-only web application for managing and searching media and folder
 - CHANGELOG.md: All changes (REQUIRED)
 - This file: Development guidelines
 
-### Testing Protocol
-
-- Test all API endpoints after changes
-- Verify frontend components render correctly
-- Check database operations
-- Test concurrent development setup
 
 ### Deployment Checklist
 
