@@ -8,6 +8,10 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+- 🐛 [2025-09-08] Fixed SQL JOIN inconsistencies in search.js → Updated all file queries to use `f.folder_path = folders.path` instead of non-existent `f.folder_id = folders.id` relationship
+- 🐛 [2025-09-08] Fixed regex character class in deploy.sh → Corrected JWT_SECRET escaping pattern from `[\.*^$()+?{|]` to `[\.^$*+?{|]` for proper special character handling
+
 ### Added
 - ✨ [2024-12-28] Added comprehensive README documentation overhaul with authentication system, environment configuration, and production deployment guide
 

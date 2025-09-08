@@ -21,7 +21,7 @@ if grep -q "your-super-secure-jwt-secret-here-please-change-this" .env.productio
     echo "🔐 Generating secure JWT secret..."
     JWT_SECRET=$(openssl rand -base64 64 | tr -d '\n')
     # Use a safer replacement method to escape special characters  
-    ESCAPED_JWT_SECRET=$(printf '%s\n' "$JWT_SECRET" | sed 's/[\.*^$()+?{|]/\\&/g')
+    ESCAPED_JWT_SECRET=$(printf '%s\n' "$JWT_SECRET" | sed 's/[\.^$*+?{|]/\\&/g')
     sed -i "s/your-super-secure-jwt-secret-here-please-change-this/$ESCAPED_JWT_SECRET/" .env.production
     echo "✅ JWT secret generated and updated"
 fi
