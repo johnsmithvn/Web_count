@@ -42,7 +42,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
   
   // Persistent search settings state
   const [searchSettings, setSearchSettings] = useState({
-    mode: 'fuzzy',
+    mode: 'contains',
     searchType: 'both',
     searchIn: 'both',
     caseSensitive: false,
@@ -151,7 +151,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
       
       const searchParams = {
         query: searchValues.query || '',
-        mode: searchSettings.mode || 'fuzzy',
+        mode: searchSettings.mode || 'contains',
         caseSensitive: searchSettings.caseSensitive ? 'true' : 'false',
         searchType: searchSettings.searchType || 'both',
         searchIn: searchSettings.searchIn || 'both',
@@ -355,7 +355,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
               >
                 <Select>
                   <Option value="exact">Exact Match</Option>
-                  <Option value="fuzzy">Contains (chứa text)</Option>
+                  <Option value="contains">Contains (chứa text)</Option>
                   <Option 
                     value="word-based" 
                     title="Splits query into separate words and matches ALL of them. Examples: 'star wars' matches files containing both 'star' AND 'wars', 'final fantasy' matches files with both words"

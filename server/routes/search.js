@@ -48,7 +48,7 @@ router.get('/', (req, res) => {
   try {
     const {
       query = '',
-      mode = 'fuzzy', // exact, fuzzy, regex, word-based
+      mode = 'contains', // exact, contains, fuzzy (legacy), regex, word-based
       caseSensitive = 'false',
       searchType = 'both', // folders, files, both
       searchIn = 'both', // name, path, both
@@ -114,7 +114,7 @@ router.get('/', (req, res) => {
         const v = (val) => val;
         nameParams = [v(query)];
         pathParams = [v(query)];
-      } else if (mode === 'fuzzy') {
+      } else if (mode === 'fuzzy' || mode === 'contains') {
         if (caseSensitive === 'true') {
           nameCondition = 'name LIKE ?';
           pathCondition = 'path LIKE ?';
@@ -338,7 +338,7 @@ router.get('/', (req, res) => {
           }
           nameParams = [query];
           pathParams = [query];
-        } else if (mode === 'fuzzy') {
+        } else if (mode === 'fuzzy' || mode === 'contains') {
           if (caseSensitive === 'true') {
             nameCondition = 'f.name LIKE ?';
             pathCondition = 'folders.path LIKE ?';
@@ -474,7 +474,7 @@ router.get('/', (req, res) => {
 // Simple search endpoint (for backward compatibility)
 router.get('/fts', (req, res) => {
   // For now, redirect to regular search since FTS5 may not be available
-  req.query.mode = 'fuzzy';
+  req.query.mode = 'contains';
   return router.handle(req, res);
 });
 

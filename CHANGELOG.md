@@ -1,6 +1,7 @@
 # Changelog
 
-Tất cả thay đổi quan trọng của Media Database Manager sẽ được ghi lại ở đây.
+Tất cả thay đổi quan trọng - 🐛 [2025-09-08] Fixed duplicate API calls in development → Temporarily removed React.StrictMode which causes intentional double-rendering for side effect detection
+- 🔄 [2025-09-08] Renamed "Fuzzy" search mode to "Contains" → Changed from mode="fuzzy" to mode="contains" with backward compatibility, more accurate naming since it was always LIKE %text% matchinga Media Database Manager sẽ được ghi lại ở đây.
 
 Định dạng dựa theo [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
