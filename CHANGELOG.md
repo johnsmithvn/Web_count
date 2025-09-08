@@ -13,6 +13,8 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 - 📚 [2024-12-28] Fixed README documentation to reflect current multi-user authentication system instead of outdated single-user setup
+- 🐛 [2024-12-28] Fixed Ant Design Table pagination warning by ensuring pagination.total matches dataSource configuration in async mode
+- 🔐 [2024-12-28] Fixed Copilot security review issues: added missing express-rate-limit dependency and properly escaped JWT_SECRET in deployment script
 
 ### Changed
 - 🔄 [2024-12-28] Updated SYSTEM_DESIGN.md with complete multi-user architecture, authentication security, enhanced search modes, and production deployment specifications

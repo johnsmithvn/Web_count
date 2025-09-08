@@ -193,11 +193,24 @@ const FileMode = ({ searchResults, refreshTrigger, onPageChange }) => {
     if (searchResults?.files) {
       // Use backend total for proper pagination
       const backendTotal = searchResults.totalFiles || searchResults.files.length;
+      const currentFiles = searchResults.files.length;
+      
+      // Fix pagination to prevent Ant Design warning
+      // Ensure pagination.total matches the actual data scenario
+      const adjustedTotal = Math.max(backendTotal, currentFiles);
+      
       setPagination(prev => ({
         ...prev,
-        total: backendTotal,
+        total: adjustedTotal,
         // Reset to page 1 only if it's a new search (not pagination)
         current: searchResults.isNewSearch ? 1 : prev.current
+      }));
+    } else {
+      // Reset pagination when no results
+      setPagination(prev => ({
+        ...prev,
+        total: 0,
+        current: 1
       }));
     }
   }, [searchResults]);
@@ -214,6 +227,19 @@ const FileMode = ({ searchResults, refreshTrigger, onPageChange }) => {
   }
 
   const files = searchResults.files || [];
+
+  // Ensure pagination is consistent with actual data
+  const actualTotal = Math.max(pagination.total, files.length);
+  const safePagination = {
+    current: pagination.current,
+    pageSize: pagination.pageSize,
+    total: actualTotal,
+    showSizeChanger: true,
+    showQuickJumper: true,
+    showTotal: (total, range) => 
+      `${range[0]}-${range[1]} of ${total} files`,
+    pageSizeOptions: ['25', '50', '100', '200'],
+  };
 
   return (
     <Card 
@@ -236,16 +262,7 @@ const FileMode = ({ searchResults, refreshTrigger, onPageChange }) => {
             columns={columns}
             dataSource={files}
             rowKey="id"
-            pagination={{
-              current: pagination.current,
-              pageSize: pagination.pageSize,
-              total: pagination.total,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} of ${total} files`,
-              pageSizeOptions: ['25', '50', '100', '200'],
-            }}
+            pagination={safePagination}
             onChange={handleTableChange}
             scroll={{ x: 1200 }}
             size="small"
