@@ -1,7 +1,11 @@
 const express = require('express');
 const path = require('path');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Apply authentication to all routes
+router.use(authenticateToken);
 
 // Add new file to database
 router.post('/file', (req, res) => {
@@ -18,6 +22,8 @@ router.post('/file', (req, res) => {
       accessed_at
     } = req.body;
 
+    const userId = req.user.id;
+
     // Validate required fields
     if (!name || !filePath) {
       return res.status(400).json({ 
@@ -30,8 +36,8 @@ router.post('/file', (req, res) => {
     const normalizedPath = filePath.replace(/\\/g, '\\');
     const folderPath = normalizedPath;
 
-    // Check if folder exists, if not create it
-    db.get('SELECT id FROM folders WHERE path = ?', [folderPath], (err, folder) => {
+    // Check if folder exists for this user, if not create it
+    db.get('SELECT id FROM folders WHERE path = ? AND user_id = ?', [folderPath, userId], (err, folder) => {
       if (err) {
         console.error('Error checking folder:', err);
         return res.status(500).json({ error: 'Database error checking folder' });
@@ -86,14 +92,14 @@ router.post('/file', (req, res) => {
       };
 
       if (!folder) {
-        // Create folder first
+        // Create folder first for this user
         const parentPath = path.dirname(folderPath);
         const folderName = path.basename(folderPath);
         const level = folderPath.split(path.sep).length - 1;
         
         const insertFolderQuery = `
-          INSERT INTO folders (path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO folders (path, name, parent_path, level, user_id, created_at, modified_at, accessed_at, scanned_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         const now = new Date().toISOString();
@@ -103,6 +109,7 @@ router.post('/file', (req, res) => {
           folderName,
           parentPath,
           level,
+          userId,
           now,
           now,
           now,
@@ -136,6 +143,8 @@ router.post('/folder', (req, res) => {
       name
     } = req.body;
 
+    const userId = req.user.id;
+
     // Validate required fields
     if (!folderPath) {
       return res.status(400).json({ 
@@ -150,8 +159,8 @@ router.post('/folder', (req, res) => {
     const parentPath = path.dirname(normalizedPath);
     const level = normalizedPath.split(path.sep).length - 1;
 
-    // Check if folder already exists
-    db.get('SELECT id FROM folders WHERE path = ?', [normalizedPath], (err, existing) => {
+    // Check if folder already exists for this user
+    db.get('SELECT id FROM folders WHERE path = ? AND user_id = ?', [normalizedPath, userId], (err, existing) => {
       if (err) {
         console.error('Error checking folder:', err);
         return res.status(500).json({ error: 'Database error' });
@@ -166,8 +175,8 @@ router.post('/folder', (req, res) => {
 
       const now = new Date().toISOString();
       const insertQuery = `
-        INSERT INTO folders (path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO folders (path, name, parent_path, level, user_id, created_at, modified_at, accessed_at, scanned_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       db.run(insertQuery, [
@@ -175,6 +184,7 @@ router.post('/folder', (req, res) => {
         folderName,
         parentPath,
         level,
+        userId,
         now,
         now,
         now,
@@ -195,6 +205,7 @@ router.post('/folder', (req, res) => {
             name: folderName,
             parent_path: parentPath,
             level,
+            user_id: userId,
             created_at: now,
             modified_at: now,
             accessed_at: now,

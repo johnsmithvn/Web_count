@@ -42,7 +42,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
   
   // Persistent search settings state
   const [searchSettings, setSearchSettings] = useState({
-    mode: 'fuzzy',
+    mode: 'contains',
     searchType: 'both',
     searchIn: 'both',
     caseSensitive: false,
@@ -151,7 +151,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
       
       const searchParams = {
         query: searchValues.query || '',
-        mode: searchSettings.mode || 'fuzzy',
+        mode: searchSettings.mode || 'contains',
         caseSensitive: searchSettings.caseSensitive ? 'true' : 'false',
         searchType: searchSettings.searchType || 'both',
         searchIn: searchSettings.searchIn || 'both',
@@ -353,9 +353,9 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 label="Search Mode"
                 name="mode"
               >
-                <Select defaultValue="fuzzy">
+                <Select>
                   <Option value="exact">Exact Match</Option>
-                  <Option value="fuzzy">Fuzzy Search</Option>
+                  <Option value="contains">Contains (chứa text)</Option>
                   <Option 
                     value="word-based" 
                     title="Splits query into separate words and matches ALL of them. Examples: 'star wars' matches files containing both 'star' AND 'wars', 'final fantasy' matches files with both words"
@@ -372,7 +372,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 label="Search In"
                 name="searchIn"
               >
-                <Select defaultValue="both">
+                <Select>
                   <Option value="both">Name & Path</Option>
                   <Option value="name">Name Only</Option>
                   <Option value="path">Path Only</Option>
@@ -385,7 +385,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 label="Search Type"
                 name="searchType"
               >
-                <Select defaultValue="both">
+                <Select>
                   <Option value="both">Both</Option>
                   <Option value="folders">Folders Only</Option>
                   <Option value="files">Files Only</Option>
@@ -406,7 +406,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                   </div>
                 }
               >
-                <Select defaultValue="from-root">
+                <Select>
                   <Option value="from-match">Option 1 — From match (last N parents)</Option>
                   <Option value="from-root">Option 2 — From root (top N levels)</Option>
                 </Select>

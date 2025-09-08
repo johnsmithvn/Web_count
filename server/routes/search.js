@@ -5,17 +5,18 @@ const router = express.Router();
 // Get children folders for a specific parent path (for lazy loading)
 router.get('/children/:encodedPath', (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   
   try {
     const parentPath = decodeURIComponent(req.params.encodedPath);
     
     db.all(`
       SELECT id, path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at,
-             (SELECT COUNT(*) FROM folders f2 WHERE f2.parent_path = folders.path) as child_count
+             (SELECT COUNT(*) FROM folders f2 WHERE f2.user_id = ? AND f2.parent_path = folders.path) as child_count
       FROM folders 
-      WHERE parent_path = ?
+      WHERE user_id = ? AND parent_path = ?
       ORDER BY name
-    `, [parentPath], (err, children) => {
+    `, [userId, userId, parentPath], (err, children) => {
       if (err) {
         console.error('Error fetching children:', err);
         return res.status(500).json({ error: 'Failed to fetch children' });
@@ -42,11 +43,12 @@ router.get('/children/:encodedPath', (req, res) => {
 // Advanced search endpoint
 router.get('/', (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   
   try {
     const {
       query = '',
-      mode = 'fuzzy', // exact, fuzzy, regex, word-based
+      mode = 'contains', // exact, contains, fuzzy (legacy), regex, word-based
       caseSensitive = 'false',
       searchType = 'both', // folders, files, both
       searchIn = 'both', // name, path, both
@@ -89,7 +91,7 @@ router.get('/', (req, res) => {
 
     // Build search conditions
     const searchConditions = [];
-    const params = [];
+    const params = [userId]; // Always start with userId
 
     if (query) {
       let nameCondition = '';
@@ -112,7 +114,7 @@ router.get('/', (req, res) => {
         const v = (val) => val;
         nameParams = [v(query)];
         pathParams = [v(query)];
-      } else if (mode === 'fuzzy') {
+      } else if (mode === 'fuzzy' || mode === 'contains') {
         if (caseSensitive === 'true') {
           nameCondition = 'name LIKE ?';
           pathCondition = 'path LIKE ?';
@@ -175,7 +177,7 @@ router.get('/', (req, res) => {
     }
 
     const whereClause = searchConditions.length > 0 ? 
-      `WHERE ${searchConditions.join(' AND ')}` : '';
+      `AND ${searchConditions.join(' AND ')}` : '';
 
     // Helper: when ancestorLevels>0 and query targets folders, fetch ancestors via recursive CTE
   const includeAncestors = !!query && Number.parseInt(ancestorLevels) > 0 && (searchType === 'folders' || searchType === 'both');
@@ -185,7 +187,7 @@ router.get('/', (req, res) => {
       const baseFolderQuery = `
         SELECT id, path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at
         FROM folders 
-        ${whereClause}
+        WHERE user_id = ? ${whereClause}
       `;
 
       const folderQuery = `
@@ -195,7 +197,7 @@ router.get('/', (req, res) => {
       `;
 
       const countQuery = `
-        SELECT COUNT(*) as count FROM folders ${whereClause}
+        SELECT COUNT(*) as count FROM folders WHERE user_id = ? ${whereClause}
       `;
 
       db.all(folderQuery, [...params, limitNum, offset], (err, folders) => {
@@ -264,10 +266,10 @@ router.get('/', (req, res) => {
           const selectAnc = `
             SELECT id, path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at
             FROM folders
-            WHERE path IN (${placeholders})
+            WHERE user_id = ? AND path IN (${placeholders})
           `;
 
-          db.all(selectAnc, Array.from(needed), (err2, rows) => {
+          db.all(selectAnc, [userId, ...Array.from(needed)], (err2, rows) => {
             results.folders = err2 ? pageMatches : (rows || []).sort((a, b) => a.path.localeCompare(b.path));
 
             // Provide helpers as arrays
@@ -313,7 +315,7 @@ router.get('/', (req, res) => {
 
     function searchFiles() {
       const fileConditions = [];
-      const fileParams = [];
+      const fileParams = [userId]; // Start with userId
 
       // Build file-specific search conditions
       if (query) {
@@ -336,7 +338,7 @@ router.get('/', (req, res) => {
           }
           nameParams = [query];
           pathParams = [query];
-        } else if (mode === 'fuzzy') {
+        } else if (mode === 'fuzzy' || mode === 'contains') {
           if (caseSensitive === 'true') {
             nameCondition = 'f.name LIKE ?';
             pathCondition = 'folders.path LIKE ?';
@@ -412,14 +414,14 @@ router.get('/', (req, res) => {
       }
 
       const fileWhereClause = fileConditions.length > 0 ? 
-        `WHERE ${fileConditions.join(' AND ')}` : '';
+        `AND ${fileConditions.join(' AND ')}` : '';
 
       const fileQuery = `
         SELECT f.id, f.name, f.extension, f.size, f.created_at, f.modified_at, f.accessed_at, f.scanned_at,
                folders.path as folder_path
         FROM files f
         LEFT JOIN folders ON f.folder_id = folders.id
-        ${fileWhereClause}
+        WHERE folders.user_id = ? ${fileWhereClause}
         ORDER BY folders.path, f.name
         LIMIT ? OFFSET ?
       `;
@@ -428,7 +430,7 @@ router.get('/', (req, res) => {
         SELECT COUNT(*) as count 
         FROM files f
         LEFT JOIN folders ON f.folder_id = folders.id
-        ${fileWhereClause}
+        WHERE folders.user_id = ? ${fileWhereClause}
       `;
 
       db.all(fileQuery, [...fileParams, limitNum, offset], (err, files) => {
@@ -472,22 +474,23 @@ router.get('/', (req, res) => {
 // Simple search endpoint (for backward compatibility)
 router.get('/fts', (req, res) => {
   // For now, redirect to regular search since FTS5 may not be available
-  req.query.mode = 'fuzzy';
+  req.query.mode = 'contains';
   return router.handle(req, res);
 });
 
 // Get all file extensions
 router.get('/extensions', (req, res) => {
   const db = req.app.locals.db;
+  const userId = req.userId;
   
   try {
     db.all(`
       SELECT extension, COUNT(*) as count 
       FROM files 
-      WHERE extension IS NOT NULL AND extension != ''
+      WHERE user_id = ? AND extension IS NOT NULL AND extension != ''
       GROUP BY extension 
       ORDER BY count DESC, extension
-    `, (err, extensions) => {
+    `, [userId], (err, extensions) => {
       if (err) {
         console.error('Extensions error:', err);
         res.status(500).json({ error: 'Could not get extensions' });

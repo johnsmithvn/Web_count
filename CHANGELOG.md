@@ -1,13 +1,81 @@
 # Changelog
 
-Tất cả thay đổi quan trọng của Media Database Manager sẽ được ghi lại ở đây.
+Tất cả thay đổi quan trọng - 🐛 [2025-09-08] Fixed duplicate API calls in development → Temporarily removed React.StrictMode which causes intentional double-rendering for side effect detection
+- 🔄 [2025-09-08] Renamed "Fuzzy" search mode to "Contains" → Changed from mode="fuzzy" to mode="contains" with backward compatibility, more accurate naming since it was always LIKE %text% matchinga Media Database Manager sẽ được ghi lại ở đây.
 
 Định dạng dựa theo [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+- 🐛 [2025-09-08] Fixed database schema inconsistencies → Updated queries to match actual database structure
+- 🐛 [2025-09-08] Fixed file insert queries → Removed non-existent user_id column from files table
+- 🐛 [2025-09-08] Fixed scan record queries → Removed non-existent scan_type column from scans table
+- 🐛 [2025-09-08] Fixed file search queries → Use proper JOIN through folders.user_id instead of files.user_id
+- 🐛 [2025-09-08] Fixed deprecated Ant Design components → Replaced Tabs.TabPane with items prop
+- 🐛 [2025-09-08] Fixed authentication password comparison → Changed from password_hash to password column
+- 🐛 [2025-09-08] Fixed syntax error in delete.js → Removed corrupt text causing "Unexpected identifier 'by'" error
+- 🐛 [2025-09-08] Fixed file clearing queries in scan.js → Use JOIN instead of non-existent files.user_id
+- 🐛 [2025-09-08] Fixed statistics queries in stats.js → All file queries now use proper JOIN relationships
+- 🐛 [2025-09-08] Fixed advanced analytics queries → Size distribution, busiest folders, date stats now use correct JOINs
+- 🐛 [2025-09-08] Fixed clipboard API errors → Added fallback for browsers without clipboard support or non-HTTPS, with custom messages
+- 🐛 [2025-09-08] Fixed search pagination → Implemented proper server-side pagination instead of client-side limiting
+- 🐛 [2025-09-08] Fixed Ant Design Form warnings → Removed defaultValue from Form.Item, use initialValues instead
+- 🐛 [2025-09-08] Fixed user role system → Changed from role field to is_admin boolean
+
 ### Added
+- 🔐 [2025-09-07] **MAJOR: Complete Authentication System Implementation**
+  - Added JWT-based authentication with bcrypt password hashing
+  - Added users table with admin role support
+  - Added scans table to track user scan operations
+  - Added user_id foreign keys to folders/files tables for data isolation
+  - Added authentication middleware (server/middleware/auth.js)
+  - Added authentication routes (server/routes/auth.js) - register, login, profile, logout
+  - Added React AuthContext for frontend authentication state management
+  - Added Login/Register forms with professional UI (AuthForm.js)
+  - Added user dropdown menu with logout functionality
+  - Added automatic token verification and user session management
+  - Added admin account creation (admin/admin) during database initialization
+  - ✨ **All user data is now isolated** - users can only see/modify their own scanned data
+  - 🔒 **Multi-user support** - Multiple users can use the same database instance safely
+  - 🎯 **JWT tokens** with 24-hour expiry for secure session management
+  - 🏗️ **Database migration** - Enhanced schema with proper foreign key relationships
+- � [2025-09-08] Fixed duplicate API calls in development → Temporarily removed React.StrictMode which causes intentional double-rendering for side effect detection
+- �🔄 [2025-09-08] Renamed "Fuzzy" search mode to "Contains (chứa text)" → More accurate naming since it was always LIKE %text% matching, not true fuzzy search
+
+### Changed
+- 🔄 [2025-09-07] **BREAKING: All backend routes now require authentication**
+  - Updated /api/scan/* routes to filter by authenticated user_id
+  - Updated /api/search/* routes to only return current user's data
+  - Updated /api/stats/* routes to show only current user's statistics
+  - Updated /api/delete/* routes to only delete current user's data
+  - Updated /api/add/* routes to associate new data with current user
+  - 🗄️ **Database queries** now include user_id filtering for complete data isolation
+  - 🔐 **API requests** now include Authorization Bearer tokens automatically
+
+### Technical Implementation Details
+- **Authentication Stack**: 
+  - Backend: jsonwebtoken ^9.0.2, bcryptjs ^2.4.3, express-session ^1.17.3
+  - Frontend: React Context API for state management, localStorage for token persistence
+- **Database Schema Changes**:
+  - Added users table (id, username, password, email, is_admin, timestamps)
+  - Added scans table (id, user_id, root_path, status, counts, timestamps)
+  - Added user_id column to folders table with foreign key constraint
+  - Enhanced indexing for user-based queries performance
+- **Security Features**:
+  - Password hashing with bcrypt (10 rounds)
+  - JWT tokens with secure secret and 24h expiry
+  - Role-based access control (admin flag in users table)
+  - Complete user data isolation at database level
+  - Automatic token validation on protected routes
+
+### Migration Required
+- 🚨 **Database reset required** - Run `npm run db:init` to create new schema
+- 🚨 **Existing data will be lost** - This is a breaking change requiring fresh database
+- ✅ **Admin account** will be created automatically: username=admin, password=admin
+
+- 🔐 [2025-09-07] Starting backend authentication system redesign - adding user authentication, session management, and multi-user data isolation
 - ✨ [2025-09-04] Folder Mode highlights all matched folders (multi-hit highlight)
 - �️ [2025-09-04] Ancestor Mode toggle (Folder Mode): choose between Option 1 (From match: last N parents) and Option 2 (From root: top N levels)
 - �🌳 [2025-09-04] Added ancestor levels display for Folder Mode search — setting "Ancestor Levels" to auto-show N parent folders and auto-expand tree to the matched node
