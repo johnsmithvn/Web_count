@@ -40,7 +40,8 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - 🔒 **Multi-user support** - Multiple users can use the same database instance safely
   - 🎯 **JWT tokens** with 24-hour expiry for secure session management
   - 🏗️ **Database migration** - Enhanced schema with proper foreign key relationships
-- 🔄 [2025-09-08] Renamed "Fuzzy" search mode to "Contains (chứa text)" → More accurate naming since it was always LIKE %text% matching, not true fuzzy search
+- � [2025-09-08] Fixed duplicate API calls in development → Temporarily removed React.StrictMode which causes intentional double-rendering for side effect detection
+- �🔄 [2025-09-08] Renamed "Fuzzy" search mode to "Contains (chứa text)" → More accurate naming since it was always LIKE %text% matching, not true fuzzy search
 
 ### Changed
 - 🔄 [2025-09-07] **BREAKING: All backend routes now require authentication**
