@@ -9,6 +9,7 @@ import {
   Alert,
   message
 } from 'antd';
+import { copyToClipboard } from '../utils/clipboard';
 import { 
   CopyOutlined,
   ExportOutlined,
@@ -41,20 +42,12 @@ const FileMode = ({ searchResults, refreshTrigger }) => {
   };
 
   const copyText = (text) => {
-    navigator.clipboard.writeText(text).then(() => {
-      message.success('Copied to clipboard!');
-    }).catch(() => {
-      message.error('Failed to copy');
-    });
+    copyToClipboard(text);
   };
 
   const copyPath = (folderPath, fileName) => {
     const fullPath = `${folderPath}${folderPath.endsWith('\\') || folderPath.endsWith('/') ? '' : '\\'}${fileName}`;
-    navigator.clipboard.writeText(fullPath).then(() => {
-      message.success('Full path copied to clipboard!');
-    }).catch(() => {
-      message.error('Failed to copy path');
-    });
+    copyToClipboard(fullPath, 'Full path copied to clipboard!');
   };
 
   const exportFiles = async () => {

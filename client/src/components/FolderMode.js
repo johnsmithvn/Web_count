@@ -9,6 +9,7 @@ import {
   ArrowsAltOutlined
 } from '@ant-design/icons';
 import { ApiService } from '../services/api';
+import { copyToClipboard } from '../utils/clipboard';
 
 const { Text } = Typography;
 
@@ -126,11 +127,7 @@ const FolderMode = ({ searchResults, refreshTrigger }) => {
   };
 
   const copyPath = (path) => {
-    navigator.clipboard.writeText(path).then(() => {
-      message.success('Path copied to clipboard!');
-    }).catch(() => {
-      message.error('Failed to copy path');
-    });
+    copyToClipboard(path, 'Path copied to clipboard!');
   };
 
   const exportFolders = async () => {

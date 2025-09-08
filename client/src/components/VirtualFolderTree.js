@@ -11,6 +11,7 @@ import {
   LoadingOutlined
 } from '@ant-design/icons';
 import { ApiService } from '../services/api';
+import { copyToClipboard } from '../utils/clipboard';
 
 const { Text } = Typography;
 const { Search } = Input;
@@ -326,11 +327,7 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
 
   // Copy path utility
   const copyPath = useCallback((path) => {
-    navigator.clipboard.writeText(path).then(() => {
-      message.success('Path copied to clipboard!');
-    }).catch(() => {
-      message.error('Failed to copy path');
-    });
+    copyToClipboard(path, 'Path copied to clipboard!');
   }, []);
 
   // Export functionality

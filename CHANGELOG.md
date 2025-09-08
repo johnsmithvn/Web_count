@@ -18,6 +18,7 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - 🐛 [2025-09-08] Fixed file clearing queries in scan.js → Use JOIN instead of non-existent files.user_id
 - 🐛 [2025-09-08] Fixed statistics queries in stats.js → All file queries now use proper JOIN relationships
 - 🐛 [2025-09-08] Fixed advanced analytics queries → Size distribution, busiest folders, date stats now use correct JOINs
+- 🐛 [2025-09-08] Fixed clipboard API errors → Added fallback for browsers without clipboard support or non-HTTPS, with custom messages
 - 🐛 [2025-09-08] Fixed user role system → Changed from role field to is_admin boolean
 
 ### Added
