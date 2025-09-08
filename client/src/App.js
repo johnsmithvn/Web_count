@@ -21,6 +21,7 @@ const MainApp = () => {
   const [searchResults, setSearchResults] = useState(null);
   const [loadingData, setLoadingData] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [currentSearchParams, setCurrentSearchParams] = useState(null);
 
   if (loading) {
     return (
@@ -42,11 +43,39 @@ const MainApp = () => {
   const handleSearch = async (searchParams) => {
     setLoadingData(true);
     try {
-      const results = await ApiService.search(searchParams);
-      setSearchResults(results);
+      // Add default pagination if not provided
+      const searchWithPagination = {
+        ...searchParams,
+        page: searchParams.page || 1,
+        limit: searchParams.limit || 100
+      };
+      
+      const results = await ApiService.search(searchWithPagination);
+      setSearchResults({ ...results, isNewSearch: true });
+      setCurrentSearchParams(searchWithPagination);
     } catch (error) {
       console.error('Search error:', error);
       throw error;
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  const handlePageChange = async (paginationParams) => {
+    if (!currentSearchParams) return;
+    
+    setLoadingData(true);
+    try {
+      const searchWithNewPagination = {
+        ...currentSearchParams,
+        ...paginationParams
+      };
+      
+      const results = await ApiService.search(searchWithNewPagination);
+      setSearchResults({ ...results, isNewSearch: false });
+      setCurrentSearchParams(searchWithNewPagination);
+    } catch (error) {
+      console.error('Page change error:', error);
     } finally {
       setLoadingData(false);
     }
@@ -69,6 +98,7 @@ const MainApp = () => {
 
   const clearSearch = () => {
     setSearchResults(null);
+    setCurrentSearchParams(null);
   };
 
   const userMenuItems = [
@@ -112,6 +142,7 @@ const MainApp = () => {
         <FileMode 
           searchResults={searchResults}
           refreshTrigger={refreshTrigger}
+          onPageChange={handlePageChange}
         />
       )
     },

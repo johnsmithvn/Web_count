@@ -20,7 +20,7 @@ import { ApiService } from '../services/api';
 
 const { Text } = Typography;
 
-const FileMode = ({ searchResults, refreshTrigger }) => {
+const FileMode = ({ searchResults, refreshTrigger, onPageChange }) => {
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
     current: 1,
@@ -173,21 +173,31 @@ const FileMode = ({ searchResults, refreshTrigger }) => {
   ];
 
   const handleTableChange = (paginationConfig, filters, sorter) => {
-    setPagination({
+    const newPagination = {
       ...pagination,
       current: paginationConfig.current,
       pageSize: paginationConfig.pageSize,
-    });
+    };
+    setPagination(newPagination);
+    
+    // Call parent callback to refetch data with new pagination
+    if (onPageChange) {
+      onPageChange({
+        page: paginationConfig.current,
+        limit: paginationConfig.pageSize
+      });
+    }
   };
 
   useEffect(() => {
     if (searchResults?.files) {
-      // Use actual files length for pagination, not totalFiles from backend
-      const actualTotal = searchResults.files.length;
+      // Use backend total for proper pagination
+      const backendTotal = searchResults.totalFiles || searchResults.files.length;
       setPagination(prev => ({
         ...prev,
-        total: actualTotal,
-        current: actualTotal <= prev.pageSize ? 1 : prev.current
+        total: backendTotal,
+        // Reset to page 1 only if it's a new search (not pagination)
+        current: searchResults.isNewSearch ? 1 : prev.current
       }));
     }
   }, [searchResults]);

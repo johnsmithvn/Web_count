@@ -19,6 +19,8 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - 🐛 [2025-09-08] Fixed statistics queries in stats.js → All file queries now use proper JOIN relationships
 - 🐛 [2025-09-08] Fixed advanced analytics queries → Size distribution, busiest folders, date stats now use correct JOINs
 - 🐛 [2025-09-08] Fixed clipboard API errors → Added fallback for browsers without clipboard support or non-HTTPS, with custom messages
+- 🐛 [2025-09-08] Fixed search pagination → Implemented proper server-side pagination instead of client-side limiting
+- 🐛 [2025-09-08] Fixed Ant Design Form warnings → Removed defaultValue from Form.Item, use initialValues instead
 - 🐛 [2025-09-08] Fixed user role system → Changed from role field to is_admin boolean
 
 ### Added
@@ -38,6 +40,7 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - 🔒 **Multi-user support** - Multiple users can use the same database instance safely
   - 🎯 **JWT tokens** with 24-hour expiry for secure session management
   - 🏗️ **Database migration** - Enhanced schema with proper foreign key relationships
+- 🔄 [2025-09-08] Renamed "Fuzzy" search mode to "Contains (chứa text)" → More accurate naming since it was always LIKE %text% matching, not true fuzzy search
 
 ### Changed
 - 🔄 [2025-09-07] **BREAKING: All backend routes now require authentication**
