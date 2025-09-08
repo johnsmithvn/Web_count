@@ -17,7 +17,12 @@ router.delete('/file/:id', (req, res) => {
     console.log(`Deleting file with ID: ${fileId} for user ${userId}`);
 
     // Get file info before deletion for logging (only user's files)
-    db.get('SELECT name, folder_id FROM files WHERE id = ? AND user_id = ?', [fileId, userId], (err, fileInfo) => {
+    db.get(`
+      SELECT f.name, f.folder_id 
+      FROM files f
+      LEFT JOIN folders ON f.folder_id = folders.id
+      WHERE f.id = ? AND folders.user_id = ?
+    `, [fileId, userId], (err, fileInfo) => {
       if (err) {
         console.error('Error getting file info:', err);
         return res.status(500).json({ error: 'Failed to get file info' });
@@ -28,7 +33,12 @@ router.delete('/file/:id', (req, res) => {
       }
 
       // Delete the file (only user's files)
-      db.run('DELETE FROM files WHERE id = ? AND user_id = ?', [fileId, userId], function(err) {
+      db.run(`
+        DELETE FROM files 
+        WHERE id = ? AND folder_id IN (
+          SELECT id FROM folders WHERE user_id = ?
+        )
+      `, [fileId, userId], function(err) {
         if (err) {
           console.error('Error deleting file:', err);
           return res.status(500).json({ error: 'Failed to delete file' });
@@ -89,11 +99,10 @@ router.delete('/', (req, res) => {
           // First get count of files to be deleted for current user
           db.get(`
             SELECT COUNT(*) as count 
-            FROM files 
-            WHERE user_id = ? AND folder_id IN (
-              SELECT id FROM folders WHERE user_id = ? AND path LIKE ?
-            )
-          `, [userId, userId, `${rootPath}%`], (err, countResult) => {
+            FROM files f
+            LEFT JOIN folders ON f.folder_id = folders.id
+            WHERE folders.user_id = ? AND folders.path LIKE ?
+          `, [userId, `${rootPath}%`], (err, countResult) => {
             if (err) {
               console.error('Error counting files:', err);
               reject(err);
@@ -105,10 +114,10 @@ router.delete('/', (req, res) => {
             // Delete files for current user
             db.run(`
               DELETE FROM files 
-              WHERE user_id = ? AND folder_id IN (
+              WHERE folder_id IN (
                 SELECT id FROM folders WHERE user_id = ? AND path LIKE ?
               )
-            `, [userId, userId, `${rootPath}%`], function(err) {
+            `, [userId, `${rootPath}%`], function(err) {
               if (err) {
                 console.error('Error deleting files:', err);
                 reject(err);
@@ -198,7 +207,12 @@ router.delete('/all', (req, res) => {
     console.log(`Starting complete database clear for user ${userId}...`);
 
     // Delete all user's files first (due to foreign key constraint)
-    db.run('DELETE FROM files WHERE user_id = ?', [userId], (err) => {
+    db.run(`
+      DELETE FROM files 
+      WHERE folder_id IN (
+        SELECT id FROM folders WHERE user_id = ?
+      )
+    `, [userId], (err) => {
       if (err) {
         console.error('Error deleting all user files:', err);
         return res.status(500).json({ error: 'Failed to delete files' });

@@ -7,6 +7,19 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+- 🐛 [2025-09-08] Fixed database schema inconsistencies → Updated queries to match actual database structure
+- 🐛 [2025-09-08] Fixed file insert queries → Removed non-existent user_id column from files table
+- 🐛 [2025-09-08] Fixed scan record queries → Removed non-existent scan_type column from scans table
+- 🐛 [2025-09-08] Fixed file search queries → Use proper JOIN through folders.user_id instead of files.user_id
+- 🐛 [2025-09-08] Fixed deprecated Ant Design components → Replaced Tabs.TabPane with items prop
+- 🐛 [2025-09-08] Fixed authentication password comparison → Changed from password_hash to password column
+- 🐛 [2025-09-08] Fixed syntax error in delete.js → Removed corrupt text causing "Unexpected identifier 'by'" error
+- 🐛 [2025-09-08] Fixed file clearing queries in scan.js → Use JOIN instead of non-existent files.user_id
+- 🐛 [2025-09-08] Fixed statistics queries in stats.js → All file queries now use proper JOIN relationships
+- 🐛 [2025-09-08] Fixed advanced analytics queries → Size distribution, busiest folders, date stats now use correct JOINs
+- 🐛 [2025-09-08] Fixed user role system → Changed from role field to is_admin boolean
+
 ### Added
 - 🔐 [2025-09-07] **MAJOR: Complete Authentication System Implementation**
   - Added JWT-based authentication with bcrypt password hashing

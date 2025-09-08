@@ -82,9 +82,9 @@ router.post('/folder', async (req, res) => {
     setTimeout(() => {
       // Record scan in scans table
       db.run(`
-        INSERT INTO scans (user_id, scan_type, root_path, status, folders_count, files_count, scan_options, completed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `, [userId, 'folder', rootPath, 'completed', scannedCount, 0, JSON.stringify({ maxDepth })], (err) => {
+        INSERT INTO scans (user_id, root_path, status, folders_count, files_count, scan_options, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `, [userId, rootPath, 'completed', scannedCount, 0, JSON.stringify({ maxDepth })], (err) => {
         if (err) console.error('Error recording scan:', err);
       });
 
@@ -122,10 +122,10 @@ router.post('/file', async (req, res) => {
     
     // Clear existing data for this root path and user
     db.run(`
-      DELETE FROM files WHERE user_id = ? AND folder_id IN (
+      DELETE FROM files WHERE folder_id IN (
         SELECT id FROM folders WHERE user_id = ? AND path LIKE ?
       )
-    `, [userId, userId, `${rootPath}%`], (err) => {
+    `, [userId, `${rootPath}%`], (err) => {
       if (err) console.error('Error clearing files:', err);
     });
     
@@ -202,10 +202,9 @@ router.post('/file', async (req, res) => {
                     if (shouldInclude && !shouldExclude) {
                       db.run(`
                         INSERT INTO files 
-                        (user_id, folder_id, name, extension, size, created_at, modified_at, accessed_at, scanned_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        (folder_id, name, extension, size, created_at, modified_at, accessed_at, scanned_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                       `, [
-                        userId,
                         folderId,
                         item,
                         extension,
@@ -241,9 +240,9 @@ router.post('/file', async (req, res) => {
     setTimeout(() => {
       // Record scan in scans table
       db.run(`
-        INSERT INTO scans (user_id, scan_type, root_path, status, folders_count, files_count, scan_options, completed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `, [userId, 'file', rootPath, 'completed', scannedFolders, scannedFiles, JSON.stringify({ maxDepth, includeExtensions, excludeExtensions })], (err) => {
+        INSERT INTO scans (user_id, root_path, status, folders_count, files_count, scan_options, completed_at)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `, [userId, rootPath, 'completed', scannedFolders, scannedFiles, JSON.stringify({ maxDepth, includeExtensions, excludeExtensions })], (err) => {
         if (err) console.error('Error recording scan:', err);
       });
 
@@ -275,7 +274,12 @@ router.get('/status', (req, res) => {
         return res.status(500).json({ error: 'Could not get folder count' });
       }
 
-      db.get('SELECT COUNT(*) as count FROM files WHERE user_id = ?', [userId], (err, fileCount) => {
+      db.get(`
+        SELECT COUNT(*) as count 
+        FROM files f
+        LEFT JOIN folders ON f.folder_id = folders.id
+        WHERE folders.user_id = ?
+      `, [userId], (err, fileCount) => {
         if (err) {
           return res.status(500).json({ error: 'Could not get file count' });
         }
@@ -285,7 +289,10 @@ router.get('/status', (req, res) => {
           FROM (
             SELECT scanned_at FROM folders WHERE user_id = ?
             UNION ALL 
-            SELECT scanned_at FROM files WHERE user_id = ?
+            SELECT f.scanned_at 
+            FROM files f
+            LEFT JOIN folders ON f.folder_id = folders.id
+            WHERE folders.user_id = ?
           )
         `, [userId, userId], (err, lastScan) => {
           if (err) {

@@ -14,13 +14,23 @@ router.get('/', (req, res) => {
         return res.status(500).json({ error: 'Could not get folder count' });
       }
 
-      db.get('SELECT COUNT(*) as count FROM files WHERE user_id = ?', [userId], (err, fileCount) => {
+      db.get(`
+        SELECT COUNT(*) as count 
+        FROM files f
+        LEFT JOIN folders ON f.folder_id = folders.id
+        WHERE folders.user_id = ?
+      `, [userId], (err, fileCount) => {
         if (err) {
           return res.status(500).json({ error: 'Could not get file count' });
         }
 
         // Total size for current user
-        db.get('SELECT SUM(size) as total FROM files WHERE user_id = ?', [userId], (err, totalSize) => {
+        db.get(`
+          SELECT SUM(f.size) as total 
+          FROM files f
+          LEFT JOIN folders ON f.folder_id = folders.id
+          WHERE folders.user_id = ?
+        `, [userId], (err, totalSize) => {
           if (err) {
             return res.status(500).json({ error: 'Could not get total size' });
           }
@@ -28,13 +38,14 @@ router.get('/', (req, res) => {
           // File type distribution for current user
           db.all(`
             SELECT 
-              extension,
+              f.extension,
               COUNT(*) as count,
-              SUM(size) as total_size,
-              AVG(size) as avg_size
-            FROM files 
-            WHERE user_id = ? AND extension IS NOT NULL AND extension != ''
-            GROUP BY extension 
+              SUM(f.size) as total_size,
+              AVG(f.size) as avg_size
+            FROM files f
+            LEFT JOIN folders ON f.folder_id = folders.id
+            WHERE folders.user_id = ? AND f.extension IS NOT NULL AND f.extension != ''
+            GROUP BY f.extension 
             ORDER BY count DESC
             LIMIT 20
           `, [userId], (err, fileTypes) => {
@@ -65,7 +76,12 @@ router.get('/', (req, res) => {
                   recentScans = { last_folder_scan: null };
                 }
 
-                db.get('SELECT MAX(scanned_at) as last_file_scan FROM files WHERE user_id = ?', [userId], (err, recentFileScans) => {
+                db.get(`
+                  SELECT MAX(f.scanned_at) as last_file_scan 
+                  FROM files f
+                  LEFT JOIN folders ON f.folder_id = folders.id
+                  WHERE folders.user_id = ?
+                `, [userId], (err, recentFileScans) => {
                   if (err) {
                     console.warn('Recent file scans error:', err);
                     recentFileScans = { last_file_scan: null };
@@ -75,16 +91,17 @@ router.get('/', (req, res) => {
                   db.all(`
                     SELECT 
                       CASE 
-                        WHEN size < 1024 THEN 'Under 1KB'
-                        WHEN size < 1048576 THEN '1KB - 1MB'
-                        WHEN size < 104857600 THEN '1MB - 100MB'
-                        WHEN size < 1073741824 THEN '100MB - 1GB'
+                        WHEN f.size < 1024 THEN 'Under 1KB'
+                        WHEN f.size < 1048576 THEN '1KB - 1MB'
+                        WHEN f.size < 104857600 THEN '1MB - 100MB'
+                        WHEN f.size < 1073741824 THEN '100MB - 1GB'
                         ELSE 'Over 1GB'
                       END as size_range,
                       COUNT(*) as count,
-                      SUM(size) as total_size
-                    FROM files
-                    WHERE user_id = ?
+                      SUM(f.size) as total_size
+                    FROM files f
+                    LEFT JOIN folders ON f.folder_id = folders.id
+                    WHERE folders.user_id = ?
                     GROUP BY size_range
                     ORDER BY 
                       CASE size_range
@@ -108,8 +125,8 @@ router.get('/', (req, res) => {
                         f.size,
                         folders.path as folder_path
                       FROM files f
-                      LEFT JOIN folders ON f.folder_id = folders.id AND f.user_id = folders.user_id
-                      WHERE f.user_id = ?
+                      LEFT JOIN folders ON f.folder_id = folders.id
+                      WHERE folders.user_id = ?
                       ORDER BY f.size DESC
                       LIMIT 10
                     `, [userId], (err, largestFiles) => {
@@ -126,7 +143,7 @@ router.get('/', (req, res) => {
                           COUNT(files.id) as file_count,
                           SUM(files.size) as total_size
                         FROM folders
-                        LEFT JOIN files ON folders.id = files.folder_id AND folders.user_id = files.user_id
+                        LEFT JOIN files ON folders.id = files.folder_id
                         WHERE folders.user_id = ?
                         GROUP BY folders.id, folders.path, folders.name
                         HAVING file_count > 0
@@ -141,12 +158,13 @@ router.get('/', (req, res) => {
                         // Date-based statistics for current user
                         db.all(`
                           SELECT 
-                            DATE(modified_at) as date,
+                            DATE(f.modified_at) as date,
                             COUNT(*) as files_modified
-                          FROM files
-                          WHERE user_id = ? AND modified_at IS NOT NULL 
-                            AND DATE(modified_at) >= DATE('now', '-30 days')
-                          GROUP BY DATE(modified_at)
+                          FROM files f
+                          LEFT JOIN folders ON f.folder_id = folders.id
+                          WHERE folders.user_id = ? AND f.modified_at IS NOT NULL 
+                            AND DATE(f.modified_at) >= DATE('now', '-30 days')
+                          GROUP BY DATE(f.modified_at)
                           ORDER BY date DESC
                           LIMIT 30
                         `, [userId], (err, dateStats) => {
@@ -216,12 +234,13 @@ router.get('/path', (req, res) => {
       db.get(`
         SELECT 
           COUNT(*) as file_count,
-          SUM(size) as total_size,
-          AVG(size) as avg_size,
-          MIN(size) as min_size,
-          MAX(size) as max_size
-        FROM files 
-        WHERE user_id = ? AND folder_id = ?
+          SUM(f.size) as total_size,
+          AVG(f.size) as avg_size,
+          MIN(f.size) as min_size,
+          MAX(f.size) as max_size
+        FROM files f
+        LEFT JOIN folders ON f.folder_id = folders.id
+        WHERE folders.user_id = ? AND f.folder_id = ?
       `, [userId, folderInfo.id], (err, fileStats) => {
         if (err) {
           return res.status(500).json({ error: 'Could not get file stats' });
@@ -230,12 +249,13 @@ router.get('/path', (req, res) => {
         // File types in this folder for current user
         db.all(`
           SELECT 
-            extension,
+            f.extension,
             COUNT(*) as count,
-            SUM(size) as total_size
-          FROM files 
-          WHERE user_id = ? AND folder_id = ? AND extension IS NOT NULL AND extension != ''
-          GROUP BY extension 
+            SUM(f.size) as total_size
+          FROM files f
+          LEFT JOIN folders ON f.folder_id = folders.id
+          WHERE folders.user_id = ? AND f.folder_id = ? AND f.extension IS NOT NULL AND f.extension != ''
+          GROUP BY f.extension 
           ORDER BY count DESC
         `, [userId, folderInfo.id], (err, fileTypes) => {
           if (err) {
@@ -307,8 +327,8 @@ router.get('/export', (req, res) => {
           f.accessed_at,
           f.scanned_at
         FROM files f
-        LEFT JOIN folders ON f.folder_id = folders.id AND f.user_id = folders.user_id
-        WHERE f.user_id = ?
+        LEFT JOIN folders ON f.folder_id = folders.id
+        WHERE folders.user_id = ?
         ORDER BY folders.path, f.name
       `;
       filename = 'files.csv';
