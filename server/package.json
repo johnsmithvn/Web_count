@@ -9,17 +9,18 @@
     "db:init": "node scripts/initDb.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "bcryptjs": "^2.4.3",
+    "connect-sqlite3": "^0.9.13",
     "cors": "^2.8.5",
-    "sqlite3": "^5.1.6",
+    "dotenv": "^17.2.2",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "fs-extra": "^11.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "mime-types": "^2.1.35",
     "multer": "^1.4.5-lts.1",
     "path": "^0.12.7",
-    "fs-extra": "^11.2.0",
-    "mime-types": "^2.1.35",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "express-session": "^1.17.3",
-    "connect-sqlite3": "^0.9.13"
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

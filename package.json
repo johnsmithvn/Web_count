@@ -10,7 +10,9 @@
     "build": "cd client && npm run build",
     "db:init": "cd server && npm run db:init",
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
-    "start": "cd server && npm start"
+    "start": "cd server && npm start",
+    "start:prod": "NODE_ENV=production cd server && npm start",
+    "setup:prod": "cp .env.example .env.production && echo 'Please edit .env.production with your settings'"
   },
   "keywords": ["media", "database", "local", "file-manager", "folder-scanner"],
   "author": "Your Name",

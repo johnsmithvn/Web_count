@@ -1,6 +1,13 @@
 const jwt = require('jsonwebtoken');
 
-// JWT Secret - in production, use environment variable
+// JWT Secret - must be set via environment variable
+if (!process.env.JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET environment variable is required but not set.');
+  } else {
+    console.warn('⚠️  WARNING: Using default JWT_SECRET in development. Set JWT_SECRET environment variable for production.');
+  }
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'media-db-secret-key-2025';
 
 // Middleware to verify JWT token

@@ -26,11 +26,27 @@ router.post('/register', async (req, res) => {
       });
     }
     
-    if (password.length < 3) {
-      return res.status(400).json({ 
-        error: 'Invalid password', 
-        message: 'Password must be at least 3 characters long' 
-      });
+    // Dynamic password requirements based on environment
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    if (isProduction) {
+      // Production: Strong password required
+      const passwordComplexityRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+      
+      if (!passwordComplexityRegex.test(password)) {
+        return res.status(400).json({ 
+          error: 'Invalid password', 
+          message: 'Password must be at least 8 characters long and contain uppercase, lowercase, number, and special character' 
+        });
+      }
+    } else {
+      // Development: Simple password
+      if (password.length < 3) {
+        return res.status(400).json({ 
+          error: 'Invalid password', 
+          message: 'Password must be at least 3 characters long' 
+        });
+      }
     }
     
     // Check if user already exists

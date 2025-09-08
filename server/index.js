@@ -1,3 +1,6 @@
+// Load environment variables
+require('dotenv').config({ path: '../.env.development' });
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');

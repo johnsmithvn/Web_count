@@ -8,6 +8,15 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- ✨ [2024-12-28] Added comprehensive README documentation overhaul with authentication system, environment configuration, and production deployment guide
+
+### Fixed
+- 📚 [2024-12-28] Fixed README documentation to reflect current multi-user authentication system instead of outdated single-user setup
+
+### Changed
+- 🔄 [2024-12-28] Updated SYSTEM_DESIGN.md with complete multi-user architecture, authentication security, enhanced search modes, and production deployment specifications
+
 ### Fixed
 - 🐛 [2025-09-08] Fixed database schema inconsistencies → Updated queries to match actual database structure
 - 🐛 [2025-09-08] Fixed file insert queries → Removed non-existent user_id column from files table
@@ -23,6 +32,11 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - 🐛 [2025-09-08] Fixed search pagination → Implemented proper server-side pagination instead of client-side limiting
 - 🐛 [2025-09-08] Fixed Ant Design Form warnings → Removed defaultValue from Form.Item, use initialValues instead
 - 🐛 [2025-09-08] Fixed user role system → Changed from role field to is_admin boolean
+- 🔒 [2025-09-08] Added dynamic password policy → Simple for development, complex for production (NODE_ENV based)
+- 🛡️ [2025-09-08] Added production security framework → Rate limiting, security headers, and deployment checklist
+- ⚙️ [2025-09-08] Added environment configuration → .env files for development/production with proper variable management
+- 🔒 [2025-09-08] Fixed JWT secret security → Require environment variable in production, warn in development
+- 🐛 [2025-09-08] Fixed file extensions query → Use proper JOIN instead of non-existent files.user_id column
 
 ### Added
 - 🔐 [2025-09-07] **MAJOR: Complete Authentication System Implementation**
