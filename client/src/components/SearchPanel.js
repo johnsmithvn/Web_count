@@ -46,6 +46,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
     searchType: 'both',
     searchIn: 'both',
     caseSensitive: false,
+    autoTrimWhitespace: true, // Always active by default
     extension: '',
     sizeRange: undefined,
   dateRange: undefined,
@@ -149,8 +150,14 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
       }
       const searchValues = await searchForm.validateFields(['query']);
       
+      // Apply auto trim whitespace if enabled
+      let searchQuery = searchValues.query || '';
+      if (searchSettings.autoTrimWhitespace) {
+        searchQuery = searchQuery.trim();
+      }
+      
       const searchParams = {
-        query: searchValues.query || '',
+        query: searchQuery,
         mode: searchSettings.mode || 'contains',
         caseSensitive: searchSettings.caseSensitive ? 'true' : 'false',
         searchType: searchSettings.searchType || 'both',
@@ -428,6 +435,19 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 valuePropName="checked"
               >
                 <Switch />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item
+                label="Auto Trim Whitespace"
+                name="autoTrimWhitespace"
+                valuePropName="checked"
+                tooltip="Tự động loại bỏ khoảng trắng đầu và cuối khi search. Ví dụ: '   [Akanagi (Aikawa Tatsuki)]    ' → '[Akanagi (Aikawa Tatsuki)]'"
+              >
+                <Switch defaultChecked />
               </Form.Item>
             </Col>
 

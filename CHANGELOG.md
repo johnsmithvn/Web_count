@@ -8,7 +8,11 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- ✨ [2025-09-21] Added Auto Trim Whitespace toggle in search settings → Automatically trims leading and trailing whitespace from search query when enabled (default: ON). Example: '   [Akanagi (Aikawa Tatsuki)]    ' becomes '[Akanagi (Aikawa Tatsuki)]'
+
 ### Fixed
+- 🐛 [2025-09-21] Fixed file search SQL queries → Changed JOIN condition from `f.folder_path = folders.path` to `f.folder_id = folders.id` to match actual database schema where files.folder_id is foreign key to folders.id
 - 🐛 [2025-09-08] Fixed SQL JOIN inconsistencies in search.js → Updated all file queries to use `f.folder_path = folders.path` instead of non-existent `f.folder_id = folders.id` relationship
 - 🐛 [2025-09-08] Fixed regex character class in deploy.sh → Corrected JWT_SECRET escaping pattern from `[\.*^$()+?{|]` to `[\.^$*+?{|]` for proper special character handling
 

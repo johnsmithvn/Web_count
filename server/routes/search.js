@@ -420,7 +420,7 @@ router.get('/', (req, res) => {
         SELECT f.id, f.name, f.extension, f.size, f.created_at, f.modified_at, f.accessed_at, f.scanned_at,
                folders.path as folder_path
         FROM files f
-        LEFT JOIN folders ON f.folder_path = folders.path
+        LEFT JOIN folders ON f.folder_id = folders.id
         WHERE folders.user_id = ? ${fileWhereClause}
         ORDER BY folders.path, f.name
         LIMIT ? OFFSET ?
@@ -429,7 +429,7 @@ router.get('/', (req, res) => {
       const fileCountQuery = `
         SELECT COUNT(*) as count 
         FROM files f
-        LEFT JOIN folders ON f.folder_path = folders.path
+        LEFT JOIN folders ON f.folder_id = folders.id
         WHERE folders.user_id = ? ${fileWhereClause}
       `;
 
