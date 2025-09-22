@@ -47,6 +47,10 @@ export class ApiService {
     return this.request(`/search/children/${encodedPath}`);
   }
 
+  static async getRootFolders() {
+    return this.request('/search/folders/root');
+  }
+
   static async search(params) {
     const queryString = new URLSearchParams(params).toString();
     return this.request(`/search?${queryString}`);
@@ -59,6 +63,15 @@ export class ApiService {
 
   static async getStats() {
     return this.request('/stats');
+  }
+
+  static async getRootPaths() {
+    return this.request('/stats/root-paths');
+  }
+
+  static async getRootPathDetails(rootPath) {
+    const encodedPath = encodeURIComponent(rootPath);
+    return this.request(`/stats/root-paths/${encodedPath}`);
   }
 
   static async getPathStats(path) {

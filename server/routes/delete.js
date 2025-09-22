@@ -81,6 +81,7 @@ router.delete('/', (req, res) => {
     
     let deletedFolders = 0;
     let deletedFiles = 0;
+    let deletedScans = 0;
 
     // Validate deleteType
     if (!['folders', 'files', 'both'].includes(deleteType)) {
@@ -166,16 +167,48 @@ router.delete('/', (req, res) => {
         }));
       }
 
+      // Always delete scan history for this root path
+      promises.push(new Promise((resolve, reject) => {
+        db.get(
+          'SELECT COUNT(*) as count FROM scans WHERE user_id = ? AND root_path = ?',
+          [userId, rootPath],
+          (scanCountErr, scanCountResult) => {
+            if (scanCountErr) {
+              console.error('Error counting scans:', scanCountErr);
+              reject(scanCountErr);
+              return;
+            }
+
+            const scanCount = scanCountResult?.count || 0;
+
+            db.run(
+              'DELETE FROM scans WHERE user_id = ? AND root_path = ?',
+              [userId, rootPath],
+              function(scanDeleteErr) {
+                if (scanDeleteErr) {
+                  console.error('Error deleting scans:', scanDeleteErr);
+                  reject(scanDeleteErr);
+                } else {
+                  deletedScans = scanCount;
+                  resolve();
+                }
+              }
+            );
+          }
+        );
+      }));
+
       // Execute all deletions
       Promise.all(promises)
         .then(() => {
           console.log(`Delete operation completed. Folders: ${deletedFolders}, Files: ${deletedFiles}`);
-          
+
           res.json({
             success: true,
             message: `Delete operation completed`,
             deletedFolders,
             deletedFiles,
+            deletedScans,
             rootPath,
             deleteType
           });
