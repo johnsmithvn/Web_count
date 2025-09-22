@@ -65,6 +65,15 @@ export class ApiService {
     return this.request('/stats');
   }
 
+  static async getRootPaths() {
+    return this.request('/stats/root-paths');
+  }
+
+  static async getRootPathDetails(rootPath) {
+    const encodedPath = encodeURIComponent(rootPath);
+    return this.request(`/stats/root-paths/${encodedPath}`);
+  }
+
   static async getPathStats(path) {
     const queryString = new URLSearchParams({ path }).toString();
     return this.request(`/stats/path?${queryString}`);

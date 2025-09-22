@@ -208,6 +208,173 @@ router.get('/', (req, res) => {
   }
 });
 
+// Get latest scan information for each root path
+router.get('/root-paths', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  try {
+    const query = `
+      SELECT
+        s.id,
+        s.root_path,
+        s.status,
+        s.folders_count,
+        s.files_count,
+        s.created_at,
+        s.completed_at,
+        (
+          SELECT COUNT(*)
+          FROM scans
+          WHERE user_id = s.user_id AND root_path = s.root_path
+        ) AS scan_count
+      FROM scans s
+      WHERE s.user_id = ?
+        AND NOT EXISTS (
+          SELECT 1
+          FROM scans newer
+          WHERE newer.user_id = s.user_id
+            AND newer.root_path = s.root_path
+            AND (
+              newer.created_at > s.created_at OR
+              (newer.created_at = s.created_at AND newer.id > s.id)
+            )
+        )
+      ORDER BY s.created_at DESC, s.id DESC
+    `;
+
+    db.all(query, [userId], (err, rows) => {
+      if (err) {
+        console.error('Root paths query failed:', err);
+        return res.status(500).json({ error: 'Could not get root paths' });
+      }
+
+      const rootPaths = (rows || []).map((row) => ({
+        id: row.id,
+        rootPath: row.root_path,
+        status: row.status,
+        foldersCount: row.folders_count,
+        filesCount: row.files_count,
+        createdAt: row.created_at,
+        completedAt: row.completed_at,
+        scanCount: row.scan_count
+      }));
+
+      res.json({ rootPaths });
+    });
+  } catch (error) {
+    console.error('Root paths error:', error);
+    res.status(500).json({ error: 'Could not get root paths', details: error.message });
+  }
+});
+
+// Get detailed scan history for a specific root path
+router.get('/root-paths/:encodedRootPath', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  try {
+    const rootPath = decodeURIComponent(req.params.encodedRootPath || '');
+
+    if (!rootPath) {
+      return res.status(400).json({ error: 'Root path parameter is required' });
+    }
+
+    const historyQuery = `
+      SELECT
+        id,
+        status,
+        folders_count,
+        files_count,
+        created_at,
+        completed_at,
+        scan_options
+      FROM scans
+      WHERE user_id = ? AND root_path = ?
+      ORDER BY created_at DESC, id DESC
+    `;
+
+    db.all(historyQuery, [userId, rootPath], (err, rows) => {
+      if (err) {
+        console.error('Root path history failed:', err);
+        return res.status(500).json({ error: 'Could not get root path history' });
+      }
+
+      const scans = (rows || []).map((row) => {
+        let scanOptions = null;
+        if (row.scan_options) {
+          try {
+            scanOptions = JSON.parse(row.scan_options);
+          } catch (parseError) {
+            scanOptions = row.scan_options;
+          }
+        }
+
+        return {
+          id: row.id,
+          status: row.status,
+          foldersCount: row.folders_count,
+          filesCount: row.files_count,
+          createdAt: row.created_at,
+          completedAt: row.completed_at,
+          scanOptions
+        };
+      });
+
+      db.get(
+        `
+          SELECT COUNT(*) as folderCount
+          FROM folders
+          WHERE user_id = ? AND path LIKE ?
+        `,
+        [userId, `${rootPath}%`],
+        (folderErr, folderStats) => {
+          if (folderErr) {
+            console.error('Folder stats failed:', folderErr);
+            return res.status(500).json({ error: 'Could not get folder statistics' });
+          }
+
+          db.get(
+            `
+              SELECT
+                COUNT(*) as fileCount,
+                SUM(f.size) as totalSize
+              FROM files f
+              LEFT JOIN folders ON f.folder_id = folders.id
+              WHERE folders.user_id = ? AND folders.path LIKE ?
+            `,
+            [userId, `${rootPath}%`],
+            (fileErr, fileStats) => {
+              if (fileErr) {
+                console.error('File stats failed:', fileErr);
+                return res.status(500).json({ error: 'Could not get file statistics' });
+              }
+
+              res.json({
+                rootPath,
+                scans,
+                totals: {
+                  scanCount: scans.length,
+                  latestScan: scans[0]?.createdAt || null,
+                  latestCompletion: scans[0]?.completedAt || null
+                },
+                currentData: {
+                  folderCount: folderStats?.folderCount || 0,
+                  fileCount: fileStats?.fileCount || 0,
+                  totalSize: fileStats?.totalSize || 0
+                }
+              });
+            }
+          );
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Root path detail error:', error);
+    res.status(500).json({ error: 'Could not get root path detail', details: error.message });
+  }
+});
+
 // Get detailed statistics for a specific path
 router.get('/path', (req, res) => {
   const db = req.app.locals.db;
