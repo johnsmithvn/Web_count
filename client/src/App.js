@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthForm from './components/AuthForm';
 import Dashboard from './components/Dashboard';
 import VirtualFolderTree from './components/VirtualFolderTree';
+import FolderTableMode from './components/FolderTableMode';
 import FileMode from './components/FileMode';
 import DeleteMode from './components/DeleteMode';
 import AddFilesMode from './components/AddFilesMode';
@@ -129,7 +130,17 @@ const MainApp = () => {
       key: 'folders',
       label: 'Folder Mode',
       children: (
-        <VirtualFolderTree 
+        <VirtualFolderTree
+          searchResults={searchResults}
+          refreshTrigger={refreshTrigger}
+        />
+      )
+    },
+    {
+      key: 'folder-table',
+      label: 'Folder Table',
+      children: (
+        <FolderTableMode
           searchResults={searchResults}
           refreshTrigger={refreshTrigger}
         />

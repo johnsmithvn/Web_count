@@ -103,3 +103,7 @@
 .ant-tree::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+.folder-table-highlight td {
+  background-color: #fff7e6 !important;
+}
