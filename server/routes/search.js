@@ -139,11 +139,24 @@ router.get('/', (req, res) => {
   ancestorLevels = '0',
     ancestorMode = 'from-root', // 'from-root' | 'from-match'
       page = 1,
-      limit = 100
+      limit = 100,
+      limitEnabled = 'true'
     } = req.query;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
-    const limitNum = parseInt(limit);
+    const parsedPage = parseInt(page, 10);
+    const pageNum = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+
+    const isLimitEnabled = limitEnabled !== 'false';
+
+    let limitNum = parseInt(limit, 10);
+    if (!isLimitEnabled) {
+      limitNum = null;
+    } else if (!Number.isFinite(limitNum) || limitNum <= 0) {
+      limitNum = 100;
+    }
+
+    const offset = isLimitEnabled ? (pageNum - 1) * limitNum : 0;
+    const limitClause = isLimitEnabled ? 'LIMIT ? OFFSET ?' : '';
 
     let results = { folders: [], files: [], totalFolders: 0, totalFiles: 0 };
 
@@ -272,14 +285,16 @@ router.get('/', (req, res) => {
       const folderQuery = `
         ${baseFolderQuery}
         ORDER BY path
-        LIMIT ? OFFSET ?
+        ${limitClause}
       `;
 
       const countQuery = `
         SELECT COUNT(*) as count FROM folders WHERE user_id = ? ${whereClause}
       `;
 
-      db.all(folderQuery, [...params, limitNum, offset], (err, folders) => {
+      const folderParams = isLimitEnabled ? [...params, limitNum, offset] : params;
+
+      db.all(folderQuery, folderParams, (err, folders) => {
         if (err) {
           console.warn('Folder search error:', err.message);
           results.folders = [];
@@ -502,7 +517,7 @@ router.get('/', (req, res) => {
         LEFT JOIN folders ON f.folder_id = folders.id
         WHERE folders.user_id = ? ${fileWhereClause}
         ORDER BY folders.path, f.name
-        LIMIT ? OFFSET ?
+        ${limitClause}
       `;
       
       const fileCountQuery = `
@@ -512,7 +527,9 @@ router.get('/', (req, res) => {
         WHERE folders.user_id = ? ${fileWhereClause}
       `;
 
-      db.all(fileQuery, [...fileParams, limitNum, offset], (err, files) => {
+      const fileQueryParams = isLimitEnabled ? [...fileParams, limitNum, offset] : fileParams;
+
+      db.all(fileQuery, fileQueryParams, (err, files) => {
         if (err) {
           console.warn('File search error:', err.message);
           results.files = [];
@@ -535,10 +552,16 @@ router.get('/', (req, res) => {
 
     function sendResults() {
       // Add pagination info
+      const totalItems = (results.totalFolders || 0) + (results.totalFiles || 0);
+      const totalPages = isLimitEnabled
+        ? Math.ceil(totalItems / (limitNum || 1))
+        : (totalItems > 0 ? 1 : 0);
+
       results.pagination = {
-        page: parseInt(page),
-        limit: limitNum,
-        totalPages: Math.ceil((results.totalFolders + results.totalFiles) / limitNum)
+        page: pageNum,
+        limit: isLimitEnabled ? limitNum : null,
+        totalPages,
+        limitEnabled: isLimitEnabled
       };
 
       res.json(results);

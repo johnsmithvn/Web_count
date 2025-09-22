@@ -179,9 +179,9 @@ const FileMode = ({ searchResults, refreshTrigger, onPageChange }) => {
       pageSize: paginationConfig.pageSize,
     };
     setPagination(newPagination);
-    
+
     // Call parent callback to refetch data with new pagination
-    if (onPageChange) {
+    if (onPageChange && searchResults?.pagination?.limitEnabled !== false) {
       onPageChange({
         page: paginationConfig.current,
         limit: paginationConfig.pageSize
@@ -196,6 +196,9 @@ const FileMode = ({ searchResults, refreshTrigger, onPageChange }) => {
       setPagination(prev => ({
         ...prev,
         total: backendTotal,
+        pageSize: searchResults.pagination?.limitEnabled === false
+          ? prev.pageSize
+          : (searchResults.pagination?.limit || prev.pageSize),
         // Reset to page 1 only if it's a new search (not pagination)
         current: searchResults.isNewSearch ? 1 : prev.current
       }));
@@ -250,11 +253,13 @@ const FileMode = ({ searchResults, refreshTrigger, onPageChange }) => {
             scroll={{ x: 1200 }}
             size="small"
           />
-          
+
           {searchResults.pagination && (
             <div style={{ marginTop: 16, textAlign: 'center' }}>
               <Text type="secondary">
-                Showing page {searchResults.pagination.page} of {searchResults.pagination.totalPages}
+                {searchResults.pagination.limitEnabled === false
+                  ? 'Showing all results (no limit applied)'
+                  : `Showing page ${searchResults.pagination.page} of ${searchResults.pagination.totalPages}`}
               </Text>
             </div>
           )}
