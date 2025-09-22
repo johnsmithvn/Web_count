@@ -11,12 +11,34 @@ router.get('/children/:encodedPath', (req, res) => {
     const parentPath = decodeURIComponent(req.params.encodedPath);
     
     db.all(`
-      SELECT id, path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at,
-             (SELECT COUNT(*) FROM folders f2 WHERE f2.user_id = ? AND f2.parent_path = folders.path) as child_count
-      FROM folders 
-      WHERE user_id = ? AND parent_path = ?
-      ORDER BY name
-    `, [userId, userId, parentPath], (err, children) => {
+      SELECT
+        folders.id,
+        folders.path,
+        folders.name,
+        folders.parent_path,
+        folders.level,
+        folders.created_at,
+        folders.modified_at,
+        folders.accessed_at,
+        folders.scanned_at,
+        COUNT(child.id) AS child_count
+      FROM folders
+      LEFT JOIN folders AS child
+        ON child.user_id = folders.user_id
+        AND child.parent_path = folders.path
+      WHERE folders.user_id = ? AND folders.parent_path = ?
+      GROUP BY
+        folders.id,
+        folders.path,
+        folders.name,
+        folders.parent_path,
+        folders.level,
+        folders.created_at,
+        folders.modified_at,
+        folders.accessed_at,
+        folders.scanned_at
+      ORDER BY folders.name
+    `, [userId, parentPath], (err, children) => {
       if (err) {
         console.error('Error fetching children:', err);
         return res.status(500).json({ error: 'Failed to fetch children' });
@@ -47,12 +69,35 @@ router.get('/folders/root', (req, res) => {
 
   try {
     db.all(`
-      SELECT id, path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at,
-             (SELECT COUNT(*) FROM folders f2 WHERE f2.user_id = ? AND f2.parent_path = folders.path) as child_count
+      SELECT
+        folders.id,
+        folders.path,
+        folders.name,
+        folders.parent_path,
+        folders.level,
+        folders.created_at,
+        folders.modified_at,
+        folders.accessed_at,
+        folders.scanned_at,
+        COUNT(child.id) AS child_count
       FROM folders
-      WHERE user_id = ? AND (level = 0 OR parent_path IS NULL OR parent_path = '')
-      ORDER BY name
-    `, [userId, userId], (err, rows) => {
+      LEFT JOIN folders AS child
+        ON child.user_id = folders.user_id
+        AND child.parent_path = folders.path
+      WHERE folders.user_id = ?
+        AND (folders.level = 0 OR folders.parent_path IS NULL OR folders.parent_path = '')
+      GROUP BY
+        folders.id,
+        folders.path,
+        folders.name,
+        folders.parent_path,
+        folders.level,
+        folders.created_at,
+        folders.modified_at,
+        folders.accessed_at,
+        folders.scanned_at
+      ORDER BY folders.name
+    `, [userId], (err, rows) => {
       if (err) {
         console.error('Error fetching root folders:', err);
         return res.status(500).json({ error: 'Failed to fetch root folders' });
