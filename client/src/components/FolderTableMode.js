@@ -1,6 +1,17 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Card, Table, Typography, Space, Button, Tooltip, message } from 'antd';
-import { ReloadOutlined } from '@ant-design/icons';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import {
+  Card,
+  Table,
+  Typography,
+  Space,
+  Button,
+  Tooltip,
+  message,
+  Empty,
+  Popover,
+  Checkbox,
+} from 'antd';
+import { ReloadOutlined, SettingOutlined } from '@ant-design/icons';
 import { ApiService } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
 
@@ -22,6 +33,9 @@ const getFolderLabel = (folder) => {
 const FolderTableMode = ({ searchResults, refreshTrigger }) => {
   const [loading, setLoading] = useState(false);
   const [folders, setFolders] = useState([]);
+  const [visibleColumnKeys, setVisibleColumnKeys] = useState([]);
+  const lastRefreshRef = useRef(refreshTrigger);
+  const lastSearchResultRef = useRef(null);
 
   const fetchAllFolders = useCallback(async () => {
     setLoading(true);
@@ -63,8 +77,30 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
   }, []);
 
   useEffect(() => {
-    fetchAllFolders();
-  }, [fetchAllFolders, refreshTrigger]);
+    if (!searchResults) {
+      setFolders([]);
+      setLoading(false);
+      lastSearchResultRef.current = null;
+      return;
+    }
+
+    if (lastSearchResultRef.current !== searchResults) {
+      lastSearchResultRef.current = searchResults;
+      fetchAllFolders();
+    }
+  }, [searchResults, fetchAllFolders]);
+
+  useEffect(() => {
+    if (!searchResults) {
+      lastRefreshRef.current = refreshTrigger;
+      return;
+    }
+
+    if (refreshTrigger !== lastRefreshRef.current) {
+      lastRefreshRef.current = refreshTrigger;
+      fetchAllFolders();
+    }
+  }, [refreshTrigger, searchResults, fetchAllFolders]);
 
   const combinedFolders = useMemo(() => {
     const map = new Map((folders || []).map(folder => [folder.path, folder]));
@@ -158,7 +194,7 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
     return { rows, maxLevel };
   }, [combinedFolders, focusPaths, folderMap]);
 
-  const columns = useMemo(() => {
+  const allColumns = useMemo(() => {
     const cols = [];
     for (let i = 0; i <= dataSource.maxLevel; i += 1) {
       const levelIndex = i;
@@ -190,7 +226,63 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
     return cols;
   }, [dataSource.maxLevel]);
 
+  useEffect(() => {
+    const nextKeys = allColumns.map(col => col.key);
+    setVisibleColumnKeys(prev => {
+      if (!prev.length) {
+        return nextKeys;
+      }
+
+      const preserved = prev.filter(key => nextKeys.includes(key));
+      const missing = nextKeys.filter(key => !preserved.includes(key));
+
+      if (preserved.length === prev.length && missing.length === 0) {
+        return prev;
+      }
+
+      return [...preserved, ...missing];
+    });
+  }, [allColumns]);
+
+  const columns = useMemo(
+    () => allColumns.filter(col => visibleColumnKeys.includes(col.key)),
+    [allColumns, visibleColumnKeys]
+  );
+
+  const toggleColumnVisibility = useCallback((key) => {
+    setVisibleColumnKeys(prev => {
+      if (prev.includes(key)) {
+        if (prev.length <= 1) {
+          message.warning('Phải có ít nhất một cột được hiển thị.');
+          return prev;
+        }
+        return prev.filter(k => k !== key);
+      }
+
+      const next = [...prev, key];
+      const orderedKeys = allColumns
+        .map(col => col.key)
+        .filter(colKey => next.includes(colKey));
+      return orderedKeys;
+    });
+  }, [allColumns]);
+
+  const columnSelectionContent = useMemo(() => (
+    <Space direction="vertical" style={{ minWidth: 200 }}>
+      {allColumns.map(col => (
+        <Checkbox
+          key={col.key}
+          checked={visibleColumnKeys.includes(col.key)}
+          onChange={() => toggleColumnVisibility(col.key)}
+        >
+          {typeof col.title === 'string' ? col.title : col.key}
+        </Checkbox>
+      ))}
+    </Space>
+  ), [allColumns, toggleColumnVisibility, visibleColumnKeys]);
+
   const handleRefresh = () => {
+    if (!searchResults) return;
     fetchAllFolders();
   };
 
@@ -199,29 +291,52 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
       title={
         <Space>
           <span>Folder Table View</span>
-          <Tooltip title="Tải lại dữ liệu thư mục">
-            <Button
-              type="text"
-              icon={<ReloadOutlined />}
-              onClick={handleRefresh}
-            />
-          </Tooltip>
+          {searchResults && (
+            <>
+              <Tooltip title="Tải lại dữ liệu thư mục">
+                <Button
+                  type="text"
+                  icon={<ReloadOutlined />}
+                  onClick={handleRefresh}
+                  disabled={loading}
+                />
+              </Tooltip>
+              <Popover
+                placement="bottomRight"
+                trigger="click"
+                content={columnSelectionContent}
+              >
+                <Button
+                  type="text"
+                  icon={<SettingOutlined />}
+                />
+              </Popover>
+            </>
+          )}
         </Space>
       }
       extra={
         <Typography.Text type="secondary">
-          {focusPaths ? `Hiển thị ${dataSource.rows.length} / ${combinedFolders.length} thư mục liên quan` : `Tổng số thư mục: ${dataSource.rows.length}`}
+          {searchResults
+            ? (focusPaths
+              ? `Hiển thị ${dataSource.rows.length} / ${combinedFolders.length} thư mục liên quan`
+              : `Tổng số thư mục: ${dataSource.rows.length}`)
+            : 'Bảng thư mục sẽ được tải sau khi bạn thực hiện tìm kiếm'}
         </Typography.Text>
       }
     >
-      <Table
-        dataSource={dataSource.rows}
-        columns={columns}
-        loading={loading}
-        pagination={{ pageSize: 50, showSizeChanger: true, defaultPageSize: 50 }}
-        rowClassName={(record) => (highlightPaths.has(record.path) ? 'folder-table-highlight' : '')}
-        scroll={{ x: true }}
-      />
+      {searchResults ? (
+        <Table
+          dataSource={dataSource.rows}
+          columns={columns}
+          loading={loading}
+          pagination={{ pageSize: 50, showSizeChanger: true, defaultPageSize: 50 }}
+          rowClassName={(record) => (highlightPaths.has(record.path) ? 'folder-table-highlight' : '')}
+          scroll={{ x: true }}
+        />
+      ) : (
+        <Empty description="Hãy thực hiện tìm kiếm để xem dữ liệu thư mục" />
+      )}
     </Card>
   );
 };
