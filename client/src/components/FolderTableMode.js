@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Card, Table, Typography, Space, Button, Tooltip, message } from 'antd';
-import { ReloadOutlined, CopyOutlined } from '@ant-design/icons';
+import { ReloadOutlined } from '@ant-design/icons';
 import { ApiService } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
 
@@ -161,33 +161,31 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
   const columns = useMemo(() => {
     const cols = [];
     for (let i = 0; i <= dataSource.maxLevel; i += 1) {
+      const levelIndex = i;
       cols.push({
-        title: i === 0 ? 'Root Path' : `Level ${i + 1}`,
-        dataIndex: `level_${i}`,
-        key: `level_${i}`,
-        render: (value) => value ? <span>{value}</span> : null,
+        title: levelIndex === 0 ? 'Root Path' : `Level ${levelIndex + 1}`,
+        dataIndex: `level_${levelIndex}`,
+        key: `level_${levelIndex}`,
+        onCell: (record) => {
+          const cellValue = record[`level_${levelIndex}`];
+          return {
+            onClick: () => {
+              if (cellValue) {
+                copyToClipboard(cellValue, 'Đã sao chép nội dung!');
+              }
+            },
+            style: cellValue ? { cursor: 'pointer' } : {},
+          };
+        },
+        render: (value) => (
+          value ? (
+            <Typography.Text style={{ cursor: 'pointer' }} title={value}>
+              {value}
+            </Typography.Text>
+          ) : null
+        ),
       });
     }
-
-    cols.push({
-      title: 'Full Path',
-      dataIndex: 'path',
-      key: 'path',
-      render: (value) => (
-        <Space>
-          <Typography.Text ellipsis style={{ maxWidth: 400 }} title={value}>
-            {value}
-          </Typography.Text>
-          <Tooltip title="Copy full path">
-            <Button
-              size="small"
-              icon={<CopyOutlined />}
-              onClick={() => copyToClipboard(value, 'Đã sao chép đường dẫn!')}
-            />
-          </Tooltip>
-        </Space>
-      ),
-    });
 
     return cols;
   }, [dataSource.maxLevel]);
