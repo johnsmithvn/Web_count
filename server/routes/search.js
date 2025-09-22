@@ -6,7 +6,7 @@ const router = express.Router();
 router.get('/children/:encodedPath', (req, res) => {
   const db = req.app.locals.db;
   const userId = req.userId;
-  
+
   try {
     const parentPath = decodeURIComponent(req.params.encodedPath);
     
@@ -37,6 +37,40 @@ router.get('/children/:encodedPath', (req, res) => {
   } catch (error) {
     console.error('Children fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch children', details: error.message });
+  }
+});
+
+// Get top-level folders for initial tree rendering
+router.get('/folders/root', (req, res) => {
+  const db = req.app.locals.db;
+  const userId = req.userId;
+
+  try {
+    db.all(`
+      SELECT id, path, name, parent_path, level, created_at, modified_at, accessed_at, scanned_at,
+             (SELECT COUNT(*) FROM folders f2 WHERE f2.user_id = ? AND f2.parent_path = folders.path) as child_count
+      FROM folders
+      WHERE user_id = ? AND (level = 0 OR parent_path IS NULL OR parent_path = '')
+      ORDER BY name
+    `, [userId, userId], (err, rows) => {
+      if (err) {
+        console.error('Error fetching root folders:', err);
+        return res.status(500).json({ error: 'Failed to fetch root folders' });
+      }
+
+      const folders = (rows || []).map(folder => ({
+        ...folder,
+        hasChildren: folder.child_count > 0
+      }));
+
+      res.json({
+        success: true,
+        folders
+      });
+    });
+  } catch (error) {
+    console.error('Root folders fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch root folders', details: error.message });
   }
 });
 

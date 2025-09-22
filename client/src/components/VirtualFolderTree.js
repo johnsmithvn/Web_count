@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, Button, Typography, Modal, Space, message, Input } from 'antd';
+import { Card, Button, Typography, Modal, Space, message, Input, Spin } from 'antd';
 import { 
   FolderOutlined, 
   FolderOpenOutlined,
@@ -121,6 +121,10 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
   const [highlightPaths, setHighlightPaths] = useState(new Set());
   const [anchorPaths, setAnchorPaths] = useState(new Set());
   const [showAllFromPaths, setShowAllFromPaths] = useState(new Set());
+  const [initialRootFolders, setInitialRootFolders] = useState([]);
+  const [initialLoading, setInitialLoading] = useState(false);
+
+  const isSearchMode = !!searchResults;
 
   // Hard reset tree state when search results change (clear or new search)
   useEffect(() => {
@@ -131,9 +135,9 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
     setSelectedFolder(null);
     setModalVisible(false);
     setSearchTerm('');
-  setHighlightPaths(new Set());
-  setAnchorPaths(new Set());
-  setShowAllFromPaths(new Set());
+    setHighlightPaths(new Set());
+    setAnchorPaths(new Set());
+    setShowAllFromPaths(new Set());
     // Note: expandPaths and helpers will be applied by the effect below if present
   }, [searchResults]);
 
@@ -143,15 +147,16 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
     const toExpand = new Set(expandedPaths);
     searchResults.expandPaths.forEach(p => toExpand.add(p));
     setExpandedPaths(toExpand);
-  // New multi-value helpers
-  if (Array.isArray(searchResults.highlightPaths)) setHighlightPaths(new Set(searchResults.highlightPaths));
-  else if (searchResults.highlightPath) setHighlightPaths(new Set([searchResults.highlightPath]));
 
-  if (Array.isArray(searchResults.anchorPaths)) setAnchorPaths(new Set(searchResults.anchorPaths));
-  else if (searchResults.anchorPath) setAnchorPaths(new Set([searchResults.anchorPath]));
+    // New multi-value helpers
+    if (Array.isArray(searchResults.highlightPaths)) setHighlightPaths(new Set(searchResults.highlightPaths));
+    else if (searchResults.highlightPath) setHighlightPaths(new Set([searchResults.highlightPath]));
 
-  if (Array.isArray(searchResults.showAllFromPaths)) setShowAllFromPaths(new Set(searchResults.showAllFromPaths));
-  else if (searchResults.showAllFromPath) setShowAllFromPaths(new Set([searchResults.showAllFromPath]));
+    if (Array.isArray(searchResults.anchorPaths)) setAnchorPaths(new Set(searchResults.anchorPaths));
+    else if (searchResults.anchorPath) setAnchorPaths(new Set([searchResults.anchorPath]));
+
+    if (Array.isArray(searchResults.showAllFromPaths)) setShowAllFromPaths(new Set(searchResults.showAllFromPaths));
+    else if (searchResults.showAllFromPath) setShowAllFromPaths(new Set([searchResults.showAllFromPath]));
 
     // Preload children for each path in the chain to make them visible
     (async () => {
@@ -164,23 +169,67 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchResults?.expandPaths]);
 
+  // Load top-level folders for the default collapsed tree when there are no search results
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchRootFolders = async () => {
+      setInitialLoading(true);
+      try {
+        const response = await ApiService.getRootFolders();
+        if (!isMounted) return;
+
+        const folders = Array.isArray(response?.folders)
+          ? response.folders.map(folder => ({
+              ...folder,
+              hasChildren: typeof folder.hasChildren === 'boolean'
+                ? folder.hasChildren
+                : (folder.child_count || 0) > 0
+            }))
+          : [];
+
+        setInitialRootFolders(folders);
+      } catch (error) {
+        if (isMounted) {
+          setInitialRootFolders([]);
+          message.error('Failed to load folder tree');
+        }
+      } finally {
+        if (isMounted) {
+          setInitialLoading(false);
+        }
+      }
+    };
+
+    fetchRootFolders();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [refreshTrigger]);
+
   // Extract root folders (level 0 or folders without parents in current search)
   const rootFolders = useMemo(() => {
-    if (!searchResults?.folders) return [];
-    // If anchorPaths present, show only those nodes at the top (support multiple branches)
-    if (anchorPaths && anchorPaths.size > 0) {
-      const anchors = searchResults.folders.filter(f => anchorPaths.has(f.path));
-      return anchors.sort((a, b) => a.name.localeCompare(b.name));
+    if (isSearchMode && Array.isArray(searchResults?.folders)) {
+      // If anchorPaths present, show only those nodes at the top (support multiple branches)
+      if (anchorPaths && anchorPaths.size > 0) {
+        const anchors = searchResults.folders.filter(f => anchorPaths.has(f.path));
+        return anchors.sort((a, b) => a.name.localeCompare(b.name));
+      }
+
+      const folders = searchResults.folders;
+      const pathSet = new Set(folders.map(f => f.path));
+
+      return folders
+        .filter(folder => {
+          // Root if level is 0 OR parent is not in current search results
+          return folder.level === 0 || !pathSet.has(folder.parent_path);
+        })
+        .sort((a, b) => a.name.localeCompare(b.name));
     }
 
-    const folders = searchResults.folders;
-    const pathSet = new Set(folders.map(f => f.path));
-    
-    return folders.filter(folder => {
-      // Root if level is 0 OR parent is not in current search results
-      return folder.level === 0 || !pathSet.has(folder.parent_path);
-    }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [searchResults, anchorPaths]);
+    return initialRootFolders;
+  }, [searchResults, anchorPaths, initialRootFolders, isSearchMode]);
 
   // Filter folders based on search term
   useEffect(() => {
@@ -274,7 +323,7 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
     // (This could be enhanced with a backend API that returns child counts)
     folder.hasChildren = hasChildren || folder.level < 10; // Assume folders can have children
 
-  const isHighlight = highlightPaths.has(path);
+    const isHighlight = highlightPaths.has(path);
 
     // If this node is the anchor, restrict visible children to the single branch child
     if (anchorPaths.size > 0 && showAllFromPaths.size > 0 && anchorPaths.has(path) && children.length > 0) {
@@ -282,18 +331,18 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
       children = children.filter(ch => showAllFromPaths.has(ch.path) || highlightPaths.has(ch.path));
     }
 
-  return (
-    <TreeNode
+    return (
+      <TreeNode
         key={path}
         node={folder}
         level={level}
         isExpanded={isExpanded}
         onToggle={handleToggle}
         onSelect={handleSelect}
-    isLoading={isLoading}
-    isHighlight={isHighlight}
+        isLoading={isLoading}
+        isHighlight={isHighlight}
         children={
-          isExpanded && children.length > 0 
+          isExpanded && children.length > 0
             ? children.map(child => renderNode(child, level + 1))
             : null
         }
@@ -367,19 +416,9 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
     });
   };
 
-  if (!searchResults) {
-    return (
-      <Card>
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          <Text type="secondary">No folder data available. Run a folder scan to populate the database.</Text>
-        </div>
-      </Card>
-    );
-  }
-
   return (
     <div>
-      <Card 
+      <Card
         title={`Virtual Folder Tree (${searchResults?.totalFolders || filteredNodes.length} folders)`}
         extra={
           <Space>
@@ -419,20 +458,31 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
           </Space>
         }
       >
-        <div style={{ 
-          maxHeight: '70vh', 
+        <div style={{
+          maxHeight: '70vh',
           overflowY: 'auto',
           border: '1px solid #f0f0f0',
           borderRadius: '6px',
           backgroundColor: '#fafafa'
         }}>
-          {filteredNodes.length > 0 ? (
+          {initialLoading && !isSearchMode ? (
+            <div style={{ textAlign: 'center', padding: '50px' }}>
+              <Spin indicator={<LoadingOutlined spin />} />
+              <div style={{ marginTop: 12 }}>
+                <Text type="secondary">Loading folder tree...</Text>
+              </div>
+            </div>
+          ) : filteredNodes.length > 0 ? (
             <div style={{ padding: '8px' }}>
               {filteredNodes.map(folder => renderNode(folder, 0))}
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '50px', color: '#999' }}>
-              {searchTerm ? 'No folders found matching your filter.' : 'No folders found.'}
+              {searchTerm
+                ? 'No folders found matching your filter.'
+                : isSearchMode
+                  ? 'No folders found.'
+                  : 'No folder data available. Run a folder scan to populate the database.'}
             </div>
           )}
         </div>

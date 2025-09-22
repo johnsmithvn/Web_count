@@ -47,6 +47,10 @@ export class ApiService {
     return this.request(`/search/children/${encodedPath}`);
   }
 
+  static async getRootFolders() {
+    return this.request('/search/folders/root');
+  }
+
   static async search(params) {
     const queryString = new URLSearchParams(params).toString();
     return this.request(`/search?${queryString}`);
