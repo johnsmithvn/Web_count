@@ -10,6 +10,7 @@ import {
   message
 } from 'antd';
 import { copyToClipboard } from '../utils/clipboard';
+import { isLimitEnabled } from '../utils/searchSettings';
 import { 
   CopyOutlined,
   ExportOutlined,
@@ -179,9 +180,9 @@ const FileMode = ({ searchResults, refreshTrigger, onPageChange }) => {
       pageSize: paginationConfig.pageSize,
     };
     setPagination(newPagination);
-    
+
     // Call parent callback to refetch data with new pagination
-    if (onPageChange) {
+    if (onPageChange && isLimitEnabled(searchResults?.pagination?.limitEnabled)) {
       onPageChange({
         page: paginationConfig.current,
         limit: paginationConfig.pageSize
@@ -193,9 +194,14 @@ const FileMode = ({ searchResults, refreshTrigger, onPageChange }) => {
     if (searchResults?.files) {
       // Use backend total for proper pagination
       const backendTotal = searchResults.totalFiles || searchResults.files.length;
+      const limitEnabled = isLimitEnabled(searchResults.pagination?.limitEnabled);
+
       setPagination(prev => ({
         ...prev,
         total: backendTotal,
+        pageSize: limitEnabled
+          ? (searchResults.pagination?.limit || prev.pageSize)
+          : prev.pageSize,
         // Reset to page 1 only if it's a new search (not pagination)
         current: searchResults.isNewSearch ? 1 : prev.current
       }));
@@ -214,6 +220,7 @@ const FileMode = ({ searchResults, refreshTrigger, onPageChange }) => {
   }
 
   const files = searchResults.files || [];
+  const paginationLimitEnabled = isLimitEnabled(searchResults.pagination?.limitEnabled);
 
   return (
     <Card 
@@ -250,11 +257,13 @@ const FileMode = ({ searchResults, refreshTrigger, onPageChange }) => {
             scroll={{ x: 1200 }}
             size="small"
           />
-          
+
           {searchResults.pagination && (
             <div style={{ marginTop: 16, textAlign: 'center' }}>
               <Text type="secondary">
-                Showing page {searchResults.pagination.page} of {searchResults.pagination.totalPages}
+                {!paginationLimitEnabled
+                  ? 'Showing all results (no limit applied)'
+                  : `Showing page ${searchResults.pagination.page} of ${searchResults.pagination.totalPages}`}
               </Text>
             </div>
           )}

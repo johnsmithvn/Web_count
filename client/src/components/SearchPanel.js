@@ -12,7 +12,8 @@ import {
   DatePicker,
   Modal,
   Space,
-  message
+  message,
+  Checkbox
 } from 'antd';
 import {
   SearchOutlined,
@@ -25,6 +26,7 @@ import {
   SettingOutlined
 } from '@ant-design/icons';
 import { ApiService } from '../services/api';
+import { isLimitEnabled, normalizeLimitValue } from '../utils/searchSettings';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -48,9 +50,11 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
     caseSensitive: false,
     extension: '',
     sizeRange: undefined,
-  dateRange: undefined,
-  ancestorLevels: 0,
-  ancestorMode: 'from-root'
+    dateRange: undefined,
+    ancestorLevels: 0,
+    ancestorMode: 'from-root',
+    limitEnabled: true,
+    limit: 100
   });
   
   // Create form instances - warnings will be suppressed by destroyOnClose
@@ -149,6 +153,9 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
       }
       const searchValues = await searchForm.validateFields(['query']);
       
+      const limitEnabled = isLimitEnabled(searchSettings.limitEnabled);
+      const limitValue = normalizeLimitValue(searchSettings.limit);
+
       const searchParams = {
         query: searchValues.query || '',
         mode: searchSettings.mode || 'contains',
@@ -160,10 +167,11 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
         sizeMax: searchSettings.sizeRange?.[1] || '',
         dateFrom: searchSettings.dateRange?.[0]?.format('YYYY-MM-DD') || '',
         dateTo: searchSettings.dateRange?.[1]?.format('YYYY-MM-DD') || '',
-  ancestorLevels: Number.isFinite(Number(searchSettings.ancestorLevels)) ? Number(searchSettings.ancestorLevels) : 0,
-  ancestorMode: searchSettings.ancestorMode || 'from-root',
+        ancestorLevels: Number.isFinite(Number(searchSettings.ancestorLevels)) ? Number(searchSettings.ancestorLevels) : 0,
+        ancestorMode: searchSettings.ancestorMode || 'from-root',
         page: 1,
-        limit: 100
+        limitEnabled,
+        ...(limitEnabled ? { limit: limitValue } : {})
       };
       
       console.log('Search params being sent:', searchParams); // Debug log
@@ -257,7 +265,15 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
   const handleSaveSettings = async () => {
     try {
       const values = await settingsForm.validateFields();
-      setSearchSettings(values);
+      const limitEnabled = isLimitEnabled(values.limitEnabled);
+      const existingLimit = normalizeLimitValue(searchSettings.limit);
+      const normalizedValues = {
+        ...values,
+        limitEnabled,
+        limit: normalizeLimitValue(values.limit, existingLimit)
+      };
+      setSearchSettings(normalizedValues);
+      settingsForm.setFieldsValue(normalizedValues);
       setSettingsModalVisible(false);
       message.success('Search settings saved successfully!');
     } catch (error) {
@@ -439,6 +455,43 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 rules={[{ type: 'number', min: 0, max: 20 }]}
               >
                 <InputNumber min={0} max={20} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item
+                label="Result Limit"
+                tooltip="Set the maximum number of results per search. Disable to fetch all matches (may impact performance)."
+                shouldUpdate={(prev, curr) => prev.limitEnabled !== curr.limitEnabled}
+              >
+                {({ getFieldValue }) => {
+                  const limitEnabledValue = isLimitEnabled(getFieldValue('limitEnabled'));
+                  return (
+                    <Space align="center">
+                      <Form.Item name="limitEnabled" valuePropName="checked" noStyle>
+                        <Checkbox>Enable</Checkbox>
+                      </Form.Item>
+                      <Form.Item
+                        name="limit"
+                        noStyle
+                        rules={limitEnabledValue ? [
+                          { required: true, message: 'Please enter a result limit' },
+                          { type: 'number', min: 1, message: 'Limit must be at least 1' }
+                        ] : []}
+                      >
+                        <InputNumber
+                          min={1}
+                          step={1}
+                          precision={0}
+                          disabled={!limitEnabledValue}
+                          style={{ width: 140 }}
+                        />
+                      </Form.Item>
+                    </Space>
+                  );
+                }}
               </Form.Item>
             </Col>
           </Row>
