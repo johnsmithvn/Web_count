@@ -32,8 +32,21 @@ export const AuthProvider = ({ children }) => {
         });
 
         if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
+          const profileResponse = await response.json();
+
+          if (profileResponse && typeof profileResponse === 'object') {
+            if (profileResponse.user && profileResponse.user.username) {
+              setUser(profileResponse.user);
+            } else if (profileResponse.username) {
+              setUser(profileResponse);
+            } else {
+              console.warn('Received unexpected profile response shape:', profileResponse);
+              logout();
+            }
+          } else {
+            console.warn('Received non-object profile response:', profileResponse);
+            logout();
+          }
         } else {
           // Token is invalid
           logout();

@@ -140,4 +140,22 @@ export class ApiService {
       body: JSON.stringify(folderData)
     });
   }
+
+  // Admin operations
+  static async getAdminUsers() {
+    return this.request('/admin/users');
+  }
+
+  static async updateUserPassword(userId, newPassword) {
+    return this.request(`/admin/users/${userId}/password`, {
+      method: 'PUT',
+      body: JSON.stringify({ newPassword })
+    });
+  }
+
+  static async deleteUser(userId) {
+    return this.request(`/admin/users/${userId}`, {
+      method: 'DELETE'
+    });
+  }
 }
