@@ -47,6 +47,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
     searchType: 'both',
     searchIn: 'both',
     caseSensitive: false,
+    trimQuery: true,
     extension: '',
     sizeRange: undefined,
     dateRange: undefined,
@@ -151,13 +152,21 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
         onClearSearch();
       }
       const searchValues = await searchForm.validateFields(['query']);
-      
+
+      const rawQuery = searchValues.query || '';
+      const shouldTrimQuery = searchSettings.trimQuery !== false;
+      const normalizedQuery = shouldTrimQuery ? rawQuery.trim() : rawQuery;
+
+      if (shouldTrimQuery && rawQuery !== normalizedQuery) {
+        searchForm.setFieldsValue({ query: normalizedQuery });
+      }
+
       const limitEnabled = searchSettings.limitEnabled !== false;
       const limitValueRaw = Number(searchSettings.limit);
       const limitValue = Number.isFinite(limitValueRaw) && limitValueRaw > 0 ? limitValueRaw : 100;
 
       const searchParams = {
-        query: searchValues.query || '',
+        query: normalizedQuery,
         mode: searchSettings.mode || 'contains',
         caseSensitive: searchSettings.caseSensitive ? 'true' : 'false',
         searchType: searchSettings.searchType || 'both',
@@ -274,7 +283,8 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
         limitEnabled: values.limitEnabled !== false,
         limit: Number.isFinite(limitFromForm) && limitFromForm > 0
           ? limitFromForm
-          : existingLimit
+          : existingLimit,
+        trimQuery: values.trimQuery !== false
       };
       setSearchSettings(normalizedValues);
       settingsForm.setFieldsValue(normalizedValues);
@@ -410,6 +420,19 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                   <Option value="folders">Folders Only</Option>
                   <Option value="files">Files Only</Option>
                 </Select>
+              </Form.Item>
+            </Col>
+
+            <Col span={8}>
+              <Form.Item
+                label="Trim Query Spaces"
+                name="trimQuery"
+                valuePropName="checked"
+              >
+                <Switch
+                  checkedChildren="Trim"
+                  unCheckedChildren="Keep"
+                />
               </Form.Item>
             </Col>
           </Row>
