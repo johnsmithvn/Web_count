@@ -33,12 +33,18 @@ export const AuthProvider = ({ children }) => {
 
         if (response.ok) {
           const profileResponse = await response.json();
-          const profileUser = profileResponse?.user || profileResponse;
 
-          if (profileUser && profileUser.username) {
-            setUser(profileUser);
+          if (profileResponse && typeof profileResponse === 'object') {
+            if (profileResponse.user && profileResponse.user.username) {
+              setUser(profileResponse.user);
+            } else if (profileResponse.username) {
+              setUser(profileResponse);
+            } else {
+              console.warn('Received unexpected profile response shape:', profileResponse);
+              logout();
+            }
           } else {
-            console.warn('Received unexpected profile response', profileResponse);
+            console.warn('Received non-object profile response:', profileResponse);
             logout();
           }
         } else {

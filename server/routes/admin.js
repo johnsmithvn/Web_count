@@ -3,6 +3,48 @@ const bcrypt = require('bcryptjs');
 
 const router = express.Router();
 
+const ensureAdminAccess = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      error: 'Authentication required',
+      message: 'You must be logged in to access admin resources'
+    });
+  }
+
+  if (req.user.is_admin !== 1) {
+    return res.status(403).json({
+      error: 'Admin privileges required',
+      message: 'You need admin permissions to perform this action'
+    });
+  }
+
+  next();
+};
+
+const runAsync = (db, sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(this);
+      }
+    });
+  });
+
+const getAsync = (db, sql, params = []) =>
+  new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(row);
+      }
+    });
+  });
+
+router.use(ensureAdminAccess);
+
 // Get aggregated statistics for all users
 router.get('/users', (req, res) => {
   const db = req.app.locals.db;
@@ -107,7 +149,7 @@ router.put('/users/:id/password', async (req, res) => {
 });
 
 // Delete a user and all of their related data
-router.delete('/users/:id', (req, res) => {
+router.delete('/users/:id', async (req, res) => {
   const db = req.app.locals.db;
   const userId = parseInt(req.params.id, 10);
 
@@ -122,18 +164,43 @@ router.delete('/users/:id', (req, res) => {
     });
   }
 
-  db.run('DELETE FROM users WHERE id = ?', [userId], function(err) {
-    if (err) {
-      console.error('Failed to delete user:', err);
-      return res.status(500).json({ error: 'Failed to delete user' });
-    }
+  let transactionStarted = false;
 
-    if (this.changes === 0) {
+  try {
+    const existingUser = await getAsync(db, 'SELECT id FROM users WHERE id = ?', [userId]);
+
+    if (!existingUser) {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    await runAsync(db, 'BEGIN TRANSACTION');
+    transactionStarted = true;
+
+    await runAsync(
+      db,
+      'DELETE FROM files WHERE folder_id IN (SELECT id FROM folders WHERE user_id = ?)',
+      [userId]
+    );
+
+    await runAsync(db, 'DELETE FROM folders WHERE user_id = ?', [userId]);
+    await runAsync(db, 'DELETE FROM scans WHERE user_id = ?', [userId]);
+    await runAsync(db, 'DELETE FROM users WHERE id = ?', [userId]);
+    await runAsync(db, 'COMMIT');
+
     res.json({ success: true, message: 'User deleted successfully' });
-  });
+  } catch (error) {
+    console.error('Failed to delete user and related data:', error);
+
+    if (transactionStarted) {
+      try {
+        await runAsync(db, 'ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Failed to rollback transaction:', rollbackError);
+      }
+    }
+
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
 });
 
 module.exports = router;
