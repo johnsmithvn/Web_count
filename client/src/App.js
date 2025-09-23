@@ -14,6 +14,7 @@ import DeleteMode from './components/DeleteMode';
 import AddFilesMode from './components/AddFilesMode';
 import SearchPanel from './components/SearchPanel';
 import { ApiService } from './services/api';
+import AdminUserManagement from './components/AdminUserManagement';
 
 const { Header, Content } = Layout;
 
@@ -118,6 +119,8 @@ const MainApp = () => {
     setCurrentSearchParams(null);
   };
 
+  const isAdmin = user?.is_admin === 1 || user?.is_admin === true || user?.isAdmin;
+
   const userMenuItems = [
     {
       key: 'profile',
@@ -194,6 +197,14 @@ const MainApp = () => {
       )
     }
   ];
+
+  if (isAdmin) {
+    tabItems.push({
+      key: 'admin',
+      label: 'Admin',
+      children: <AdminUserManagement currentUser={user} />
+    });
+  }
 
   return (
     <Layout style={{ minHeight: '100vh' }}>

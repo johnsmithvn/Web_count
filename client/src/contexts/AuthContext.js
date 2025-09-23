@@ -32,8 +32,15 @@ export const AuthProvider = ({ children }) => {
         });
 
         if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
+          const profileResponse = await response.json();
+          const profileUser = profileResponse?.user || profileResponse;
+
+          if (profileUser && profileUser.username) {
+            setUser(profileUser);
+          } else {
+            console.warn('Received unexpected profile response', profileResponse);
+            logout();
+          }
         } else {
           // Token is invalid
           logout();

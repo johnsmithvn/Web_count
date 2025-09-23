@@ -28,7 +28,7 @@ db.run('PRAGMA foreign_keys = ON');
 app.locals.db = db;
 
 // Import authentication middleware
-const { authenticateToken, extractUserId } = require('./middleware/auth');
+const { authenticateToken, extractUserId, requireAdmin } = require('./middleware/auth');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -37,6 +37,7 @@ const searchRoutes = require('./routes/search');
 const statsRoutes = require('./routes/stats');
 const deleteRoutes = require('./routes/delete');
 const addRoutes = require('./routes/add');
+const adminRoutes = require('./routes/admin');
 
 // Public routes (no authentication required)
 app.use('/api/auth', authRoutes);
@@ -52,6 +53,7 @@ app.use('/api/search', authenticateToken, extractUserId, searchRoutes);
 app.use('/api/stats', authenticateToken, extractUserId, statsRoutes);
 app.use('/api/delete', authenticateToken, extractUserId, deleteRoutes);
 app.use('/api/add', authenticateToken, extractUserId, addRoutes);
+app.use('/api/admin', authenticateToken, requireAdmin, adminRoutes);
 
 // Serve React app for any non-API routes (only if build exists)
 app.get('*', (req, res) => {
