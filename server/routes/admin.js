@@ -1,25 +1,12 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-const ensureAdminAccess = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({
-      error: 'Authentication required',
-      message: 'You must be logged in to access admin resources'
-    });
-  }
-
-  if (req.user.is_admin !== 1) {
-    return res.status(403).json({
-      error: 'Admin privileges required',
-      message: 'You need admin permissions to perform this action'
-    });
-  }
-
-  next();
-};
+// Ensure all admin routes are executed behind authentication and admin checks.
+router.use(authenticateToken);
+router.use(requireAdmin);
 
 const runAsync = (db, sql, params = []) =>
   new Promise((resolve, reject) => {
@@ -42,8 +29,6 @@ const getAsync = (db, sql, params = []) =>
       }
     });
   });
-
-router.use(ensureAdminAccess);
 
 // Get aggregated statistics for all users
 router.get('/users', (req, res) => {
