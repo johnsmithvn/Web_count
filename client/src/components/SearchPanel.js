@@ -154,14 +154,14 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
       const searchValues = await searchForm.validateFields(['query']);
 
       const rawQuery = searchValues.query || '';
-      const shouldTrimQuery = searchSettings.trimQuery !== false;
+      const shouldTrimQuery = searchSettings.trimQuery ?? true;
       const normalizedQuery = shouldTrimQuery ? rawQuery.trim() : rawQuery;
 
       if (shouldTrimQuery && rawQuery !== normalizedQuery) {
         searchForm.setFieldsValue({ query: normalizedQuery });
       }
 
-      const limitEnabled = searchSettings.limitEnabled !== false;
+      const limitEnabled = searchSettings.limitEnabled ?? true;
       const limitValueRaw = Number(searchSettings.limit);
       const limitValue = Number.isFinite(limitValueRaw) && limitValueRaw > 0 ? limitValueRaw : 100;
 
@@ -280,11 +280,11 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
         : 100;
       const normalizedValues = {
         ...values,
-        limitEnabled: values.limitEnabled !== false,
+        limitEnabled: values.limitEnabled ?? true,
         limit: Number.isFinite(limitFromForm) && limitFromForm > 0
           ? limitFromForm
           : existingLimit,
-        trimQuery: values.trimQuery !== false
+        trimQuery: values.trimQuery ?? true
       };
       setSearchSettings(normalizedValues);
       settingsForm.setFieldsValue(normalizedValues);
@@ -494,7 +494,8 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 shouldUpdate={(prev, curr) => prev.limitEnabled !== curr.limitEnabled}
               >
                 {({ getFieldValue }) => {
-                  const limitEnabledValue = getFieldValue('limitEnabled') !== false;
+                  const limitEnabledValue = getFieldValue('limitEnabled');
+                  const limitEnabledChecked = limitEnabledValue ?? true;
                   return (
                     <Space align="center">
                       <Form.Item name="limitEnabled" valuePropName="checked" noStyle>
@@ -503,7 +504,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                       <Form.Item
                         name="limit"
                         noStyle
-                        rules={limitEnabledValue ? [
+                        rules={limitEnabledChecked ? [
                           { required: true, message: 'Please enter a result limit' },
                           { type: 'number', min: 1, message: 'Limit must be at least 1' }
                         ] : []}
@@ -512,7 +513,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                           min={1}
                           step={1}
                           precision={0}
-                          disabled={!limitEnabledValue}
+                          disabled={!limitEnabledChecked}
                           style={{ width: 140 }}
                         />
                       </Form.Item>
