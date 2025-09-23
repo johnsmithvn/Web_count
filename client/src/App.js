@@ -14,6 +14,7 @@ import DeleteMode from './components/DeleteMode';
 import AddFilesMode from './components/AddFilesMode';
 import SearchPanel from './components/SearchPanel';
 import { ApiService } from './services/api';
+import { isLimitEnabled, normalizeLimitValue } from './utils/searchSettings';
 
 const { Header, Content } = Layout;
 
@@ -44,9 +45,8 @@ const MainApp = () => {
   const handleSearch = async (searchParams) => {
     setLoadingData(true);
     try {
-      const limitEnabled = searchParams.limitEnabled !== false && searchParams.limitEnabled !== 'false';
-      const parsedLimit = Number(searchParams.limit);
-      const normalizedLimit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 100;
+      const limitEnabled = isLimitEnabled(searchParams.limitEnabled);
+      const normalizedLimit = normalizeLimitValue(searchParams.limit);
 
       // Add default pagination if not provided
       const searchWithPagination = {
@@ -76,7 +76,7 @@ const MainApp = () => {
   const handlePageChange = async (paginationParams) => {
     if (!currentSearchParams) return;
 
-    const limitEnabled = currentSearchParams.limitEnabled !== false && currentSearchParams.limitEnabled !== 'false';
+    const limitEnabled = isLimitEnabled(currentSearchParams.limitEnabled);
     if (!limitEnabled) {
       return;
     }

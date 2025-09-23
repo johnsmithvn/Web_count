@@ -146,7 +146,7 @@ router.get('/', (req, res) => {
     const parsedPage = parseInt(page, 10);
     const pageNum = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
 
-    const isLimitEnabled = limitEnabled !== 'false';
+    const isLimitEnabled = !(limitEnabled === false || limitEnabled === 'false');
 
     let limitNum = parseInt(limit, 10);
     if (!isLimitEnabled) {
@@ -553,8 +553,9 @@ router.get('/', (req, res) => {
     function sendResults() {
       // Add pagination info
       const totalItems = (results.totalFolders || 0) + (results.totalFiles || 0);
+      const safeLimit = Number.isFinite(limitNum) && limitNum > 0 ? limitNum : 1;
       const totalPages = isLimitEnabled
-        ? Math.ceil(totalItems / (limitNum || 1))
+        ? Math.ceil(totalItems / safeLimit)
         : (totalItems > 0 ? 1 : 0);
 
       results.pagination = {

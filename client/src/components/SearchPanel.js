@@ -26,6 +26,7 @@ import {
   SettingOutlined
 } from '@ant-design/icons';
 import { ApiService } from '../services/api';
+import { isLimitEnabled, normalizeLimitValue } from '../utils/searchSettings';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -152,9 +153,8 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
       }
       const searchValues = await searchForm.validateFields(['query']);
       
-      const limitEnabled = searchSettings.limitEnabled !== false;
-      const limitValueRaw = Number(searchSettings.limit);
-      const limitValue = Number.isFinite(limitValueRaw) && limitValueRaw > 0 ? limitValueRaw : 100;
+      const limitEnabled = isLimitEnabled(searchSettings.limitEnabled);
+      const limitValue = normalizeLimitValue(searchSettings.limit);
 
       const searchParams = {
         query: searchValues.query || '',
@@ -265,16 +265,12 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
   const handleSaveSettings = async () => {
     try {
       const values = await settingsForm.validateFields();
-      const limitFromForm = Number(values.limit);
-      const existingLimit = Number.isFinite(Number(searchSettings.limit)) && Number(searchSettings.limit) > 0
-        ? Number(searchSettings.limit)
-        : 100;
+      const limitEnabled = isLimitEnabled(values.limitEnabled);
+      const existingLimit = normalizeLimitValue(searchSettings.limit);
       const normalizedValues = {
         ...values,
-        limitEnabled: values.limitEnabled !== false,
-        limit: Number.isFinite(limitFromForm) && limitFromForm > 0
-          ? limitFromForm
-          : existingLimit
+        limitEnabled,
+        limit: normalizeLimitValue(values.limit, existingLimit)
       };
       setSearchSettings(normalizedValues);
       settingsForm.setFieldsValue(normalizedValues);
@@ -471,7 +467,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 shouldUpdate={(prev, curr) => prev.limitEnabled !== curr.limitEnabled}
               >
                 {({ getFieldValue }) => {
-                  const limitEnabledValue = getFieldValue('limitEnabled') !== false;
+                  const limitEnabledValue = isLimitEnabled(getFieldValue('limitEnabled'));
                   return (
                     <Space align="center">
                       <Form.Item name="limitEnabled" valuePropName="checked" noStyle>
