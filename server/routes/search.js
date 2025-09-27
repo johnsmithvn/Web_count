@@ -135,13 +135,62 @@ router.get('/', (req, res) => {
       sizeMin = '',
       sizeMax = '',
       dateFrom = '',
-    dateTo = '',
-  ancestorLevels = '0',
-    ancestorMode = 'from-root', // 'from-root' | 'from-match'
+      dateTo = '',
+      ancestorLevels = '0',
+      ancestorMode = 'from-root', // 'from-root' | 'from-match'
       page = 1,
       limit = 100,
-      limitEnabled = 'true'
+      limitEnabled = 'true',
+      rootPaths: rootPathsParam = ''
     } = req.query;
+
+    const rawRootPaths = [];
+    if (Array.isArray(rootPathsParam)) {
+      rootPathsParam.forEach((value) => {
+        if (typeof value === 'string' && value.trim()) {
+          value.split('|').forEach((part) => {
+            if (part && part.trim()) {
+              rawRootPaths.push(part.trim());
+            }
+          });
+        }
+      });
+    } else if (typeof rootPathsParam === 'string' && rootPathsParam.trim()) {
+      rootPathsParam.split('|').forEach((part) => {
+        if (part && part.trim()) {
+          rawRootPaths.push(part.trim());
+        }
+      });
+    }
+
+    const normalizeRootPath = (value) => {
+      if (!value || typeof value !== 'string') return null;
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      return trimmed.replace(/\\+/g, '\\');
+    };
+
+    const ensureTrailingSeparator = (value) => {
+      if (!value) return value;
+      if (value.endsWith('\\') || value.endsWith('/')) {
+        return value;
+      }
+      return `${value}\\`;
+    };
+
+    const normalizedRootPaths = rawRootPaths
+      .map(normalizeRootPath)
+      .filter((path) => !!path);
+
+    const uniqueRootPaths = Array.from(new Set(normalizedRootPaths));
+
+    const rootPathFilters = uniqueRootPaths.map((path) => {
+      const withSeparator = ensureTrailingSeparator(path);
+      return {
+        exact: path,
+        like: `${withSeparator}%`
+      };
+    });
 
     const parsedPage = parseInt(page, 10);
     const pageNum = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
@@ -268,7 +317,15 @@ router.get('/', (req, res) => {
       params.push(dateTo);
     }
 
-    const whereClause = searchConditions.length > 0 ? 
+    if (rootPathFilters.length > 0) {
+      const clauses = rootPathFilters.map(() => '(path = ? OR path LIKE ?)');
+      searchConditions.push(`(${clauses.join(' OR ')})`);
+      rootPathFilters.forEach(({ exact, like }) => {
+        params.push(exact, like);
+      });
+    }
+
+    const whereClause = searchConditions.length > 0 ?
       `AND ${searchConditions.join(' AND ')}` : '';
 
     // Helper: when ancestorLevels>0 and query targets folders, fetch ancestors via recursive CTE
@@ -507,7 +564,15 @@ router.get('/', (req, res) => {
         fileParams.push(parseInt(sizeMax));
       }
 
-      const fileWhereClause = fileConditions.length > 0 ? 
+      if (rootPathFilters.length > 0) {
+        const clauses = rootPathFilters.map(() => '(folders.path = ? OR folders.path LIKE ?)');
+        fileConditions.push(`(${clauses.join(' OR ')})`);
+        rootPathFilters.forEach(({ exact, like }) => {
+          fileParams.push(exact, like);
+        });
+      }
+
+      const fileWhereClause = fileConditions.length > 0 ?
         `AND ${fileConditions.join(' AND ')}` : '';
 
       const fileQuery = `
