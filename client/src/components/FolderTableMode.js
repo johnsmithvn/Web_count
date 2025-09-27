@@ -63,10 +63,25 @@ const buildFullFilePath = (folderPath, fileName) => {
   return `${normalized}${separator}${fileName}`;
 };
 
+const COLUMN_STORAGE_KEY = 'folderTableVisibleColumns';
+
+const loadStoredColumnKeys = () => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = window.localStorage.getItem(COLUMN_STORAGE_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn('Failed to load stored column visibility preferences:', error);
+    return [];
+  }
+};
+
 const FolderTableMode = ({ searchResults, refreshTrigger }) => {
   const [loading, setLoading] = useState(false);
   const [folders, setFolders] = useState([]);
-  const [visibleColumnKeys, setVisibleColumnKeys] = useState([]);
+  const [visibleColumnKeys, setVisibleColumnKeys] = useState(loadStoredColumnKeys);
   const lastRefreshRef = useRef(refreshTrigger);
   const lastSearchResultRef = useRef(null);
 
@@ -365,20 +380,36 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
   useEffect(() => {
     const nextKeys = allColumns.map(col => col.key);
     setVisibleColumnKeys(prev => {
-      if (!prev.length) {
-        return nextKeys;
-      }
-
       const preserved = prev.filter(key => nextKeys.includes(key));
       const missing = nextKeys.filter(key => !preserved.includes(key));
 
       if (preserved.length === prev.length && missing.length === 0) {
-        return prev;
+        if (prev.length || nextKeys.length === 0) {
+          return prev;
+        }
       }
 
-      return [...preserved, ...missing];
+      if (!prev.length && nextKeys.length) {
+        return nextKeys;
+      }
+
+      const merged = [...preserved, ...missing];
+      return merged.length ? merged : nextKeys;
     });
   }, [allColumns]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (visibleColumnKeys.length) {
+        window.localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(visibleColumnKeys));
+      } else {
+        window.localStorage.removeItem(COLUMN_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.warn('Failed to store column visibility preferences:', error);
+    }
+  }, [visibleColumnKeys]);
 
   const columns = useMemo(
     () => allColumns.filter(col => visibleColumnKeys.includes(col.key)),
