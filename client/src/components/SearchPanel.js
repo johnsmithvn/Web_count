@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Card,
   Input,
@@ -40,6 +40,9 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
   const [scanLoading, setScanLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [pendingDeleteData, setPendingDeleteData] = useState(null);
+  const [availableRootPaths, setAvailableRootPaths] = useState([]);
+  const [rootPathsLoading, setRootPathsLoading] = useState(false);
+  const [rootPathsError, setRootPathsError] = useState(null);
   
   // Persistent search settings state
   const [searchSettings, setSearchSettings] = useState({
@@ -54,7 +57,8 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
     ancestorLevels: 0,
     ancestorMode: 'from-root',
     limitEnabled: true,
-    limit: 100
+    limit: 100,
+    rootPaths: []
   });
   
   // Create form instances - warnings will be suppressed by destroyOnClose
@@ -64,6 +68,34 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
   // Watchers to force re-render when include/exclude lists change (keeps counts fresh)
   const includeExtValues = Form.useWatch('includeExtensions', scanForm) || [];
   const excludeExtValues = Form.useWatch('excludeExtensions', scanForm) || [];
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchRootPaths = async () => {
+      setRootPathsLoading(true);
+      setRootPathsError(null);
+      try {
+        const data = await ApiService.getRootPaths();
+        if (!isMounted) return;
+        setAvailableRootPaths(data.rootPaths || []);
+      } catch (error) {
+        if (!isMounted) return;
+        setAvailableRootPaths([]);
+        setRootPathsError(error.message || 'Failed to load root paths');
+      } finally {
+        if (isMounted) {
+          setRootPathsLoading(false);
+        }
+      }
+    };
+
+    fetchRootPaths();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // --- Extension groups for quick select/clear ---
   const INCLUDE_GROUPS = {
@@ -165,6 +197,10 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
       const limitValueRaw = Number(searchSettings.limit);
       const limitValue = Number.isFinite(limitValueRaw) && limitValueRaw > 0 ? limitValueRaw : 100;
 
+      const selectedRootPaths = Array.isArray(searchSettings.rootPaths)
+        ? searchSettings.rootPaths.filter((p) => !!p && typeof p === 'string')
+        : [];
+
       const searchParams = {
         query: normalizedQuery,
         mode: searchSettings.mode || 'contains',
@@ -182,6 +218,10 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
         limitEnabled,
         ...(limitEnabled ? { limit: limitValue } : {})
       };
+
+      if (selectedRootPaths.length > 0) {
+        searchParams.rootPaths = selectedRootPaths.join('|');
+      }
       
       console.log('Search params being sent:', searchParams); // Debug log
       
@@ -284,7 +324,10 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
         limit: Number.isFinite(limitFromForm) && limitFromForm > 0
           ? limitFromForm
           : existingLimit,
-        trimQuery: values.trimQuery ?? true
+        trimQuery: values.trimQuery ?? true,
+        rootPaths: Array.isArray(values.rootPaths)
+          ? values.rootPaths.filter((path) => !!path && typeof path === 'string')
+          : []
       };
       setSearchSettings(normalizedValues);
       settingsForm.setFieldsValue(normalizedValues);
@@ -386,8 +429,8 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                 <Select>
                   <Option value="exact">Exact Match</Option>
                   <Option value="contains">Contains (chứa text)</Option>
-                  <Option 
-                    value="word-based" 
+                  <Option
+                    value="word-based"
                     title="Splits query into separate words and matches ALL of them. Examples: 'star wars' matches files containing both 'star' AND 'wars', 'final fantasy' matches files with both words"
                   >
                     Word-based (Windows-like)
@@ -420,6 +463,29 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
                   <Option value="folders">Folders Only</Option>
                   <Option value="files">Files Only</Option>
                 </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={16}>
+              <Form.Item
+                label="Root Paths"
+                name="rootPaths"
+                tooltip="Chọn một hoặc nhiều root path để giới hạn phạm vi tìm kiếm. Để trống để tìm trong tất cả."
+              >
+                <Select
+                  mode="multiple"
+                  allowClear
+                  placeholder="All root paths"
+                  loading={rootPathsLoading}
+                  notFoundContent={rootPathsError ? rootPathsError : (rootPathsLoading ? 'Loading...' : 'No root paths available')}
+                  options={availableRootPaths.map((item) => ({
+                    value: item.rootPath,
+                    label: item.rootPath
+                  }))}
+                  maxTagCount="responsive"
+                />
               </Form.Item>
             </Col>
 
