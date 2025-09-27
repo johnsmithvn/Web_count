@@ -17,6 +17,29 @@ import { copyToClipboard } from '../utils/clipboard';
 
 const PAGE_SIZE = 500;
 
+const normalizePath = (path) => {
+  if (typeof path !== 'string') return '';
+  return path.replace(/\//g, '\\');
+};
+
+const splitPathSegments = (path) => {
+  if (typeof path !== 'string') return [];
+  return normalizePath(path).split(/[\\/]+/).filter(Boolean);
+};
+
+const getParentPath = (path) => {
+  const segments = splitPathSegments(path);
+  if (segments.length <= 1) {
+    return null;
+  }
+  return segments.slice(0, -1).join('\\');
+};
+
+const getLevelFromPath = (path) => {
+  const segments = splitPathSegments(path);
+  return Math.max(0, segments.length - 1);
+};
+
 const getFolderLabel = (folder) => {
   if (!folder) return '';
   if (folder.level === 0) {
@@ -24,10 +47,20 @@ const getFolderLabel = (folder) => {
   }
   if (folder.name) return folder.name;
   if (folder.path) {
-    const segments = folder.path.split(/[\\/]+/).filter(Boolean);
+    const segments = splitPathSegments(folder.path);
     return segments.length > 0 ? segments[segments.length - 1] : folder.path;
   }
   return '';
+};
+
+const getFileDisplayName = (file) => file?.name || file?.file_name || file?.filename || '';
+
+const buildFullFilePath = (folderPath, fileName) => {
+  if (!folderPath) return fileName || '';
+  if (!fileName) return folderPath;
+  const normalized = normalizePath(folderPath);
+  const separator = normalized.endsWith('\\') ? '' : '\\';
+  return `${normalized}${separator}${fileName}`;
 };
 
 const FolderTableMode = ({ searchResults, refreshTrigger }) => {
@@ -103,37 +136,106 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
   }, [refreshTrigger, searchResults, fetchAllFolders]);
 
   const combinedFolders = useMemo(() => {
-    const map = new Map((folders || []).map(folder => [folder.path, folder]));
+    const map = new Map();
+
+    const ensureEntry = (rawPath) => {
+      const normalized = normalizePath(rawPath);
+      if (!normalized) return null;
+      if (map.has(normalized)) return map.get(normalized);
+
+      const entry = {
+        path: normalized,
+        parent_path: getParentPath(normalized),
+        level: getLevelFromPath(normalized),
+        name: getFolderLabel({ path: normalized }),
+        files: [],
+        isVirtual: true,
+      };
+
+      map.set(normalized, entry);
+
+      if (entry.parent_path) {
+        ensureEntry(entry.parent_path);
+      }
+
+      return entry;
+    };
+
+    const mergeFolder = (folder) => {
+      if (!folder?.path) return;
+      const normalized = normalizePath(folder.path);
+      const existing = map.get(normalized) || {};
+      const normalizedParent = folder.parent_path ? normalizePath(folder.parent_path) : getParentPath(normalized);
+      const parentPath = normalizedParent || null;
+      const merged = {
+        ...existing,
+        ...folder,
+        path: normalized,
+        parent_path: parentPath,
+        level: Number.isFinite(folder.level) ? folder.level : (existing.level ?? getLevelFromPath(normalized)),
+      };
+
+      const folderFiles = Array.isArray(folder.files) ? folder.files : [];
+      merged.files = folderFiles.length ? folderFiles : (existing.files || []);
+
+      map.set(normalized, merged);
+
+      if (parentPath) {
+        ensureEntry(parentPath);
+      }
+    };
+
+    (folders || []).forEach(mergeFolder);
+
     if (Array.isArray(searchResults?.folders)) {
-      searchResults.folders.forEach(folder => {
-        if (folder?.path) {
-          map.set(folder.path, { ...map.get(folder.path), ...folder });
-        }
-      });
+      searchResults.folders.forEach(mergeFolder);
     }
+
+    const filesByFolder = new Map();
+    (searchResults?.files || []).forEach((file) => {
+      const folderPath = file?.folder_path;
+      if (!folderPath) return;
+      const normalized = normalizePath(folderPath);
+      if (!filesByFolder.has(normalized)) {
+        filesByFolder.set(normalized, []);
+      }
+      filesByFolder.get(normalized).push(file);
+      ensureEntry(normalized);
+    });
+
+    filesByFolder.forEach((filesForFolder, normalized) => {
+      const existing = ensureEntry(normalized);
+      const nextFiles = [...(existing.files || []), ...filesForFolder];
+      map.set(normalized, { ...existing, files: nextFiles });
+    });
+
     return Array.from(map.values());
-  }, [folders, searchResults?.folders]);
+  }, [folders, searchResults?.folders, searchResults?.files]);
 
   const folderMap = useMemo(() => {
     const map = new Map();
     combinedFolders.forEach(folder => {
       if (folder?.path) {
-        map.set(folder.path, folder);
+        map.set(normalizePath(folder.path), folder);
       }
     });
     return map;
   }, [combinedFolders]);
 
-  const highlightPaths = useMemo(() => new Set(searchResults?.highlightPaths || []), [searchResults?.highlightPaths]);
+  const highlightPaths = useMemo(
+    () => new Set((searchResults?.highlightPaths || []).map(normalizePath)),
+    [searchResults?.highlightPaths]
+  );
 
   const focusPaths = useMemo(() => {
     if (!searchResults) return null;
     const paths = new Set();
 
     const addPathChain = (path) => {
-      if (!path || paths.has(path)) return;
-      paths.add(path);
-      const parent = folderMap.get(path)?.parent_path;
+      const normalized = normalizePath(path);
+      if (!normalized || paths.has(normalized)) return;
+      paths.add(normalized);
+      const parent = folderMap.get(normalized)?.parent_path;
       if (parent && !paths.has(parent)) {
         addPathChain(parent);
       }
@@ -141,6 +243,10 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
 
     (searchResults.folders || []).forEach(folder => {
       if (folder?.path) addPathChain(folder.path);
+    });
+
+    (searchResults.files || []).forEach(file => {
+      if (file?.folder_path) addPathChain(file.folder_path);
     });
 
     (searchResults.expandPaths || []).forEach(addPathChain);
@@ -163,6 +269,7 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
         key: folder.path,
         path: folder.path,
         level: folder.level,
+        files: Array.isArray(folder.files) ? folder.files : [],
       };
 
       let current = folder;
@@ -171,13 +278,13 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
         const levelIndex = Number.isFinite(current.level) ? current.level : 0;
         row[`level_${levelIndex}`] = getFolderLabel(current);
         if (!current.parent_path) break;
-        current = folderMap.get(current.parent_path);
+        current = folderMap.get(normalizePath(current.parent_path));
         safety += 1;
       }
 
       // Ensure root column is filled even if traversal failed
       if (!row.level_0 && folder?.path) {
-        const rootSegments = folder.path.split(/[\\/]+/).filter(Boolean);
+        const rootSegments = splitPathSegments(folder.path);
         row.level_0 = rootSegments.length > 0 ? rootSegments[0] : folder.path;
       }
 
@@ -222,6 +329,35 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
         ),
       });
     }
+
+    cols.push({
+      title: 'Files',
+      dataIndex: 'files',
+      key: 'files',
+      render: (files, record) => {
+        if (!files || files.length === 0) return null;
+        return (
+          <Space direction="vertical" size={4}>
+            {files.map((file, index) => {
+              const displayName = getFileDisplayName(file);
+              if (!displayName) return null;
+              const fullPath = buildFullFilePath(file.folder_path || record.path, displayName);
+              const fileKey = `${displayName}-${index}`;
+              return (
+                <Typography.Text
+                  key={fileKey}
+                  style={{ cursor: 'pointer' }}
+                  title={`Nhấn để sao chép đường dẫn: ${fullPath}`}
+                  onClick={() => copyToClipboard(fullPath, 'Đã sao chép đường dẫn đầy đủ!')}
+                >
+                  {displayName}
+                </Typography.Text>
+              );
+            })}
+          </Space>
+        );
+      },
+    });
 
     return cols;
   }, [dataSource.maxLevel]);
