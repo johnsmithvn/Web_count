@@ -1,21 +1,17 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   Card,
   Table,
   Typography,
   Space,
   Button,
-  Tooltip,
   message,
   Empty,
   Popover,
   Checkbox,
 } from 'antd';
-import { ReloadOutlined, SettingOutlined } from '@ant-design/icons';
-import { ApiService } from '../services/api';
+import { SettingOutlined } from '@ant-design/icons';
 import { copyToClipboard } from '../utils/clipboard';
-
-const PAGE_SIZE = 500;
 
 const normalizePath = (path) => {
   if (typeof path !== 'string') return '';
@@ -63,79 +59,11 @@ const buildFullFilePath = (folderPath, fileName) => {
   return `${normalized}${separator}${fileName}`;
 };
 
-const FolderTableMode = ({ searchResults, refreshTrigger }) => {
-  const [loading, setLoading] = useState(false);
-  const [folders, setFolders] = useState([]);
+const FolderTableMode = ({ searchResults }) => {
   const [visibleColumnKeys, setVisibleColumnKeys] = useState([]);
-  const lastRefreshRef = useRef(refreshTrigger);
-  const lastSearchResultRef = useRef(null);
-
-  const fetchAllFolders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const aggregated = [];
-      let currentPage = 1;
-      let total = Infinity;
-
-      while (aggregated.length < total) {
-        const result = await ApiService.search({
-          query: '',
-          mode: 'contains',
-          caseSensitive: 'false',
-          searchType: 'folders',
-          searchIn: 'both',
-          page: currentPage,
-          limit: PAGE_SIZE,
-        });
-
-        const fetched = Array.isArray(result?.folders) ? result.folders : [];
-        aggregated.push(...fetched);
-        total = Number.isFinite(result?.totalFolders) ? result.totalFolders : aggregated.length;
-
-        if (fetched.length < PAGE_SIZE) {
-          break;
-        }
-
-        currentPage += 1;
-      }
-
-      setFolders(aggregated);
-    } catch (error) {
-      console.error('Failed to load folder table data:', error);
-      message.error('Không thể tải danh sách thư mục. Vui lòng thử lại.');
-      setFolders([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!searchResults) {
-      setFolders([]);
-      setLoading(false);
-      lastSearchResultRef.current = null;
-      return;
-    }
-
-    if (lastSearchResultRef.current !== searchResults) {
-      lastSearchResultRef.current = searchResults;
-      fetchAllFolders();
-    }
-  }, [searchResults, fetchAllFolders]);
-
-  useEffect(() => {
-    if (!searchResults) {
-      lastRefreshRef.current = refreshTrigger;
-      return;
-    }
-
-    if (refreshTrigger !== lastRefreshRef.current) {
-      lastRefreshRef.current = refreshTrigger;
-      fetchAllFolders();
-    }
-  }, [refreshTrigger, searchResults, fetchAllFolders]);
 
   const combinedFolders = useMemo(() => {
+    if (!searchResults) return [];
     const map = new Map();
 
     const ensureEntry = (rawPath) => {
@@ -185,8 +113,6 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
       }
     };
 
-    (folders || []).forEach(mergeFolder);
-
     if (Array.isArray(searchResults?.folders)) {
       searchResults.folders.forEach(mergeFolder);
     }
@@ -210,7 +136,7 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
     });
 
     return Array.from(map.values());
-  }, [folders, searchResults?.folders, searchResults?.files]);
+  }, [searchResults]);
 
   const folderMap = useMemo(() => {
     const map = new Map();
@@ -417,37 +343,22 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
     </Space>
   ), [allColumns, toggleColumnVisibility, visibleColumnKeys]);
 
-  const handleRefresh = () => {
-    if (!searchResults) return;
-    fetchAllFolders();
-  };
-
   return (
     <Card
       title={
         <Space>
           <span>Folder Table View</span>
           {searchResults && (
-            <>
-              <Tooltip title="Tải lại dữ liệu thư mục">
-                <Button
-                  type="text"
-                  icon={<ReloadOutlined />}
-                  onClick={handleRefresh}
-                  disabled={loading}
-                />
-              </Tooltip>
-              <Popover
-                placement="bottomRight"
-                trigger="click"
-                content={columnSelectionContent}
-              >
-                <Button
-                  type="text"
-                  icon={<SettingOutlined />}
-                />
-              </Popover>
-            </>
+            <Popover
+              placement="bottomRight"
+              trigger="click"
+              content={columnSelectionContent}
+            >
+              <Button
+                type="text"
+                icon={<SettingOutlined />}
+              />
+            </Popover>
           )}
         </Space>
       }
@@ -465,7 +376,6 @@ const FolderTableMode = ({ searchResults, refreshTrigger }) => {
         <Table
           dataSource={dataSource.rows}
           columns={columns}
-          loading={loading}
           pagination={{ pageSize: 50, showSizeChanger: true, defaultPageSize: 50 }}
           rowClassName={(record) => (highlightPaths.has(record.path) ? 'folder-table-highlight' : '')}
           scroll={{ x: true }}
