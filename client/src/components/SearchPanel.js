@@ -54,7 +54,7 @@ const SearchPanel = ({ onSearch, onScan, onClearSearch, loading, hasResults }) =
     extension: '',
     sizeRange: undefined,
     dateRange: undefined,
-    ancestorLevels: 0,
+    ancestorLevels: 1, // ✅ Default = 1 để FolderTableMode có đủ data
     ancestorMode: 'from-root',
     limitEnabled: true,
     limit: 100,
