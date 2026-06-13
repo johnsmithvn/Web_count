@@ -9,6 +9,7 @@ và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Fixed
+- 🐛 [2026-05-31] Fixed file extension statistics query → Joined `files` with `folders` to properly filter by `user_id`, fixing a SQL error when requesting file extensions.
 - 🐛 [2025-10-06] Fixed FolderTableMode excessive API calls → Removed fetchAllFolders() logic that was calling 93 requests, now uses searchResults directly like other modes
 - 🐛 [2025-10-06] Fixed FolderTableMode missing data with ancestorLevels=0 → Changed default ancestorLevels from 0 to 1 to ensure ancestor chain is included for proper table rendering
 - 🐛 [2025-09-08] Fixed database schema inconsistencies → Updated queries to match actual database structure

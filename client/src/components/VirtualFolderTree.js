@@ -404,7 +404,7 @@ const VirtualFolderTree = ({ searchResults, refreshTrigger }) => {
   // Format date utility
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleString('vi-VN', {
+    return new Date(dateString).toLocaleString('en-GB', {
       timeZone: 'Asia/Ho_Chi_Minh',
       year: 'numeric',
       month: '2-digit',

@@ -41,7 +41,7 @@ const DeleteMode = ({ refreshTrigger, onRefresh }) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleString('en-GB');
   };
 
   const getExtensionColor = (extension) => {

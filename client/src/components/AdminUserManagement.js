@@ -27,7 +27,7 @@ const formatDateTime = (value) => {
   if (!value) {
     return <Text type="secondary">Never</Text>;
   }
-  return moment(value).format('YYYY-MM-DD HH:mm');
+  return moment(value).format('DD/MM/YYYY HH:mm');
 };
 
 const numberRenderer = (value) => (value ?? 0).toLocaleString();

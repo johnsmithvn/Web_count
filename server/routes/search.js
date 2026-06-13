@@ -652,11 +652,12 @@ router.get('/extensions', (req, res) => {
   
   try {
     db.all(`
-      SELECT extension, COUNT(*) as count 
-      FROM files 
-      WHERE user_id = ? AND extension IS NOT NULL AND extension != ''
-      GROUP BY extension 
-      ORDER BY count DESC, extension
+      SELECT f.extension, COUNT(*) as count 
+      FROM files f
+      JOIN folders ON f.folder_id = folders.id
+      WHERE folders.user_id = ? AND f.extension IS NOT NULL AND f.extension != ''
+      GROUP BY f.extension 
+      ORDER BY count DESC, f.extension
     `, [userId], (err, extensions) => {
       if (err) {
         console.error('Extensions error:', err);

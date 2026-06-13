@@ -22,18 +22,50 @@ This is a comprehensive system design for a **local-only web application** that 
 
 ## Database Schema
 
+### Users Table (Authentication)
+```sql
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  email TEXT,
+  is_admin INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_login DATETIME
+);
+```
+
+### Scans Table (History)
+```sql
+CREATE TABLE scans (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  root_path TEXT NOT NULL,
+  status TEXT DEFAULT 'completed',
+  folders_count INTEGER DEFAULT 0,
+  files_count INTEGER DEFAULT 0,
+  scan_options TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
 ### Folders Table
 ```sql
 CREATE TABLE folders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  path TEXT UNIQUE NOT NULL,           -- Full folder path
+  user_id INTEGER NOT NULL,               -- Foreign key to users.id
+  path TEXT NOT NULL,                  -- Full folder path
   name TEXT NOT NULL,                  -- Folder name only
   parent_path TEXT,                    -- Parent folder path
   level INTEGER DEFAULT 0,            -- Depth level in hierarchy
   created_at DATETIME,                -- File system creation date
   modified_at DATETIME,               -- File system modification date
   accessed_at DATETIME,               -- File system access date
-  scanned_at DATETIME DEFAULT CURRENT_TIMESTAMP  -- When this record was created
+  scanned_at DATETIME DEFAULT CURRENT_TIMESTAMP,  -- When this record was created
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 ```
 
@@ -41,10 +73,10 @@ CREATE TABLE folders (
 ```sql
 CREATE TABLE files (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  folder_id INTEGER,                   -- Foreign key to folders.id
   name TEXT NOT NULL,                  -- File name with extension
   extension TEXT,                      -- File extension (.mp4, .jpg, etc.)
-  size INTEGER DEFAULT 0,             -- File size in bytes
+  size INTEGER,                       -- File size in bytes
+  folder_id INTEGER,                   -- Foreign key to folders.id
   created_at DATETIME,                -- File system creation date
   modified_at DATETIME,               -- File system modification date
   accessed_at DATETIME,               -- File system access date
@@ -55,15 +87,23 @@ CREATE TABLE files (
 
 ### Indexes for Performance
 ```sql
+-- User & Scan indexes
+CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_scans_user_id ON scans(user_id);
+CREATE INDEX idx_scans_status ON scans(status);
+
 -- Folder indexes
+CREATE INDEX idx_folders_user_id ON folders(user_id);
 CREATE INDEX idx_folders_path ON folders(path);
-CREATE INDEX idx_folders_parent ON folders(parent_path);
+CREATE INDEX idx_folders_parent_path ON folders(parent_path);
 CREATE INDEX idx_folders_level ON folders(level);
+CREATE INDEX idx_folders_user_path ON folders(user_id, path);
 
 -- File indexes
-CREATE INDEX idx_files_folder ON files(folder_id);
+CREATE INDEX idx_files_folder_id ON files(folder_id);
 CREATE INDEX idx_files_extension ON files(extension);
 CREATE INDEX idx_files_size ON files(size);
+CREATE INDEX idx_files_name ON files(name);
 ```
 
 ## API Endpoints

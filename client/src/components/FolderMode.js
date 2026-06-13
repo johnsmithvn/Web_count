@@ -153,7 +153,7 @@ const FolderMode = ({ searchResults, refreshTrigger }) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleString();
+    return new Date(dateString).toLocaleString('en-GB');
   };
 
   if (!searchResults) {

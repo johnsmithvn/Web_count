@@ -86,18 +86,50 @@ npm run dev
 
 ## 🗄️ Database Schema
 
+### Bảng Users (Authentication)
+```sql
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  email TEXT,
+  is_admin INTEGER DEFAULT 0,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  last_login DATETIME
+);
+```
+
+### Bảng Scans (Lịch sử quét)
+```sql
+CREATE TABLE scans (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  root_path TEXT NOT NULL,
+  status TEXT DEFAULT 'completed',
+  folders_count INTEGER DEFAULT 0,
+  files_count INTEGER DEFAULT 0,
+  scan_options TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  completed_at DATETIME,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
 ### Bảng Folders
 ```sql
 CREATE TABLE folders (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  path TEXT UNIQUE NOT NULL,
+  user_id INTEGER NOT NULL,
+  path TEXT NOT NULL,
   name TEXT NOT NULL,
   parent_path TEXT,
   level INTEGER DEFAULT 0,
   created_at DATETIME,
   modified_at DATETIME,
   accessed_at DATETIME,
-  scanned_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  scanned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 ```
 
@@ -105,10 +137,10 @@ CREATE TABLE folders (
 ```sql
 CREATE TABLE files (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  folder_id INTEGER,
   name TEXT NOT NULL,
   extension TEXT,
-  size INTEGER DEFAULT 0,
+  size INTEGER,
+  folder_id INTEGER,
   created_at DATETIME,
   modified_at DATETIME,
   accessed_at DATETIME,
