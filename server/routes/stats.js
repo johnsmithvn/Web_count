@@ -17,7 +17,7 @@ router.get('/', (req, res) => {
       db.get(`
         SELECT COUNT(*) as count 
         FROM files f
-        LEFT JOIN folders ON f.folder_id = folders.id
+        JOIN folders ON f.folder_id = folders.id
         WHERE folders.user_id = ?
       `, [userId], (err, fileCount) => {
         if (err) {
@@ -28,7 +28,7 @@ router.get('/', (req, res) => {
         db.get(`
           SELECT SUM(f.size) as total 
           FROM files f
-          LEFT JOIN folders ON f.folder_id = folders.id
+          JOIN folders ON f.folder_id = folders.id
           WHERE folders.user_id = ?
         `, [userId], (err, totalSize) => {
           if (err) {
@@ -43,7 +43,7 @@ router.get('/', (req, res) => {
               SUM(f.size) as total_size,
               AVG(f.size) as avg_size
             FROM files f
-            LEFT JOIN folders ON f.folder_id = folders.id
+            JOIN folders ON f.folder_id = folders.id
             WHERE folders.user_id = ? AND f.extension IS NOT NULL AND f.extension != ''
             GROUP BY f.extension 
             ORDER BY count DESC
@@ -79,7 +79,7 @@ router.get('/', (req, res) => {
                 db.get(`
                   SELECT MAX(f.scanned_at) as last_file_scan 
                   FROM files f
-                  LEFT JOIN folders ON f.folder_id = folders.id
+                  JOIN folders ON f.folder_id = folders.id
                   WHERE folders.user_id = ?
                 `, [userId], (err, recentFileScans) => {
                   if (err) {
@@ -100,7 +100,7 @@ router.get('/', (req, res) => {
                       COUNT(*) as count,
                       SUM(f.size) as total_size
                     FROM files f
-                    LEFT JOIN folders ON f.folder_id = folders.id
+                    JOIN folders ON f.folder_id = folders.id
                     WHERE folders.user_id = ?
                     GROUP BY size_range
                     ORDER BY 
@@ -125,7 +125,7 @@ router.get('/', (req, res) => {
                         f.size,
                         folders.path as folder_path
                       FROM files f
-                      LEFT JOIN folders ON f.folder_id = folders.id
+                      JOIN folders ON f.folder_id = folders.id
                       WHERE folders.user_id = ?
                       ORDER BY f.size DESC
                       LIMIT 10
@@ -161,7 +161,7 @@ router.get('/', (req, res) => {
                             DATE(f.modified_at) as date,
                             COUNT(*) as files_modified
                           FROM files f
-                          LEFT JOIN folders ON f.folder_id = folders.id
+                          JOIN folders ON f.folder_id = folders.id
                           WHERE folders.user_id = ? AND f.modified_at IS NOT NULL 
                             AND DATE(f.modified_at) >= DATE('now', '-30 days')
                           GROUP BY DATE(f.modified_at)
@@ -340,7 +340,7 @@ router.get('/root-paths/:encodedRootPath', (req, res) => {
                 COUNT(*) as fileCount,
                 SUM(f.size) as totalSize
               FROM files f
-              LEFT JOIN folders ON f.folder_id = folders.id
+              JOIN folders ON f.folder_id = folders.id
               WHERE folders.user_id = ? AND folders.path LIKE ?
             `,
             [userId, `${rootPath}%`],
@@ -406,7 +406,7 @@ router.get('/path', (req, res) => {
           MIN(f.size) as min_size,
           MAX(f.size) as max_size
         FROM files f
-        LEFT JOIN folders ON f.folder_id = folders.id
+        JOIN folders ON f.folder_id = folders.id
         WHERE folders.user_id = ? AND f.folder_id = ?
       `, [userId, folderInfo.id], (err, fileStats) => {
         if (err) {
@@ -420,7 +420,7 @@ router.get('/path', (req, res) => {
             COUNT(*) as count,
             SUM(f.size) as total_size
           FROM files f
-          LEFT JOIN folders ON f.folder_id = folders.id
+          JOIN folders ON f.folder_id = folders.id
           WHERE folders.user_id = ? AND f.folder_id = ? AND f.extension IS NOT NULL AND f.extension != ''
           GROUP BY f.extension 
           ORDER BY count DESC
@@ -494,7 +494,7 @@ router.get('/export', (req, res) => {
           f.accessed_at,
           f.scanned_at
         FROM files f
-        LEFT JOIN folders ON f.folder_id = folders.id
+        JOIN folders ON f.folder_id = folders.id
         WHERE folders.user_id = ?
         ORDER BY folders.path, f.name
       `;

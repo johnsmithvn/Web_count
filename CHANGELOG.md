@@ -6,6 +6,46 @@ Tất cả thay đổi quan trọng - 🐛 [2025-09-08] Fixed duplicate API call
 Định dạng dựa theo [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 và dự án tuân theo [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-13
+
+### Fixed (P0 — Critical)
+- 🔴 **Race condition in `POST /scan/file`** — DELETE, INSERT, and response were all running concurrently via fire-and-forget callbacks + hardcoded `setTimeout(2000)`. Rewrote to Promise-based sequential execution: DELETE awaits → scan awaits → record scan → response. Counters now reflect actual inserted rows.
+- 🔴 **Race condition in `POST /scan/folder`** — Same pattern. Fixed with async/await + `dbRunAsync` helper.
+- 🔴 **`GET /scan/status` queried non-existent column `scan_type`** — Column doesn't exist in `scans` table schema. Fixed to `scan_options` which is the actual column.
+
+### Fixed (P1 — Medium)
+- 🟡 **`DELETE /preview` used `req.user?.id` instead of `req.userId`** — Inconsistent with all other routes. Could return undefined if middleware chain changes. Standardized to `req.userId`.
+- 🟡 **`add.js` double auth middleware** — `authenticateToken` was applied both in `index.js` (router mount) and inside `add.js` (`router.use`). Removed duplicate. Also fixed `req.user.id` → `req.userId` for consistency.
+- 🟡 **`LEFT JOIN` used where `INNER JOIN` is correct** — 16 queries across `stats.js`, `search.js`, `delete.js`, `scan.js` used `LEFT JOIN folders` but `WHERE folders.user_id = ?` made them behave as INNER JOIN while being semantically misleading. Changed to explicit `JOIN`.
+
+### Fixed (P2 — Low)
+- 🔵 **`initDb.js` used fragile `setTimeout` chain** — Tables, indexes, and admin user creation relied on staggered timeouts (100ms per index, 2s for admin, 3.5s for close). Replaced with `db.serialize()` for guaranteed sequential execution.
+
+### Changed
+- **`scan.js`** — Complete rewrite. Added `dbRunAsync`, `dbGetAsync`, `dbAllAsync` Promise wrappers for callback-based sqlite3. Both scan routes now fully async/await.
+- **`initDb.js`** — Rewritten with `db.serialize()` block.
+- **`add.js`** — Removed `authenticateToken` import and `router.use()`.
+
+### Files Modified
+- `server/routes/scan.js` — P0 race condition fix + scan_type fix + LEFT JOIN fix
+- `server/routes/stats.js` — 11× LEFT JOIN → JOIN
+- `server/routes/search.js` — 2× LEFT JOIN → JOIN
+- `server/routes/delete.js` — req.user?.id fix + 2× LEFT JOIN → JOIN
+- `server/routes/add.js` — Double auth removal + req.user.id fix
+- `server/scripts/initDb.js` — setTimeout → db.serialize()
+
+### Documentation Restructure
+- 📁 Created `docs/` directory for centralized documentation
+- 📝 **[MOVED]** `SYSTEM_DESIGN.md` → `docs/SYSTEM_DESIGN.md` — Completely rewritten to match actual code (12 inaccuracies fixed)
+- 📝 **[NEW]** `docs/DATABASE.md` — Column-level schema reference, ownership model, query patterns
+- 📝 **[NEW]** `docs/API.md` — Complete API endpoint reference with request/response examples
+- 📝 **[NEW]** `docs/RULES.md` — AI agent coding rules specific to this repository
+- 📝 **[NEW]** `docs/STRUCTURE.md` — Full project structure with file sizes and descriptions
+- 📝 **[NEW]** `docs/HOW_IT_WORKS.md` — Chi tiết cách lưu dữ liệu, logic scan, search modes, display tabs (tiếng Việt)
+- 🗑️ **[DELETED]** Root `SYSTEM_DESIGN.md` — Replaced by `docs/SYSTEM_DESIGN.md`
+
+---
+
 ## [Unreleased]
 
 ### Fixed

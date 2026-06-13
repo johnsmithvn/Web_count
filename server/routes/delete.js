@@ -20,7 +20,7 @@ router.delete('/file/:id', (req, res) => {
     db.get(`
       SELECT f.name, f.folder_id 
       FROM files f
-      LEFT JOIN folders ON f.folder_id = folders.id
+      JOIN folders ON f.folder_id = folders.id
       WHERE f.id = ? AND folders.user_id = ?
     `, [fileId, userId], (err, fileInfo) => {
       if (err) {
@@ -101,7 +101,7 @@ router.delete('/', (req, res) => {
           db.get(`
             SELECT COUNT(*) as count 
             FROM files f
-            LEFT JOIN folders ON f.folder_id = folders.id
+            JOIN folders ON f.folder_id = folders.id
             WHERE folders.user_id = ? AND folders.path LIKE ?
           `, [userId, `${rootPath}%`], (err, countResult) => {
             if (err) {
@@ -289,7 +289,7 @@ router.post('/preview', (req, res) => {
   
   try {
     const { rootPath, deleteType = 'both' } = req.body;
-    const userId = req.user?.id;
+    const userId = req.userId;
     
     if (!rootPath) {
       return res.status(400).json({ error: 'Root path is required' });

@@ -1,11 +1,7 @@
 const express = require('express');
 const path = require('path');
-const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-
-// Apply authentication to all routes
-router.use(authenticateToken);
 
 // Add new file to database
 router.post('/file', (req, res) => {
@@ -22,7 +18,7 @@ router.post('/file', (req, res) => {
       accessed_at
     } = req.body;
 
-    const userId = req.user.id;
+    const userId = req.userId;
 
     // Validate required fields
     if (!name || !filePath) {
@@ -143,7 +139,7 @@ router.post('/folder', (req, res) => {
       name
     } = req.body;
 
-    const userId = req.user.id;
+    const userId = req.userId;
 
     // Validate required fields
     if (!folderPath) {
